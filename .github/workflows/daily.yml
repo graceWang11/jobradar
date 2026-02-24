@@ -10,6 +10,8 @@ on:
 jobs:
   job-search:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Check out repo
