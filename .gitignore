@@ -1,0 +1,22 @@
+# Credentials — never commit
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Output files (regenerated each run)
+output/
+logs/
+
+# macOS
+.DS_Store
+
+# Playwright MCP logs
+.playwright-mcp/

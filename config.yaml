@@ -1,0 +1,67 @@
+keywords:
+  levels:
+    - graduate
+    - junior
+    - entry
+    - associate
+    - "early career"
+    - cadet
+
+  roles:
+    software:
+      - "software engineer"
+      - "software developer"
+      - "backend developer"
+      - "frontend developer"
+      - "full stack"
+      - "fullstack"
+      - "web developer"
+      - "devops engineer"
+      - "platform engineer"
+    architecture:
+      - "junior architect"
+      - "associate architect"
+      - "solutions architect"
+      - "technical architect"
+    programs:
+      - "graduate program"
+      - "graduate programme"
+      - "tech graduate"
+      - "rotation program"
+      - "rotational program"
+      - "internship"
+      - "cadet program"
+
+locations:
+  primary:
+    - Adelaide
+    - Melbourne
+  optional:
+    - Remote
+    - Hybrid
+
+filters:
+  include_remote: false
+
+email:
+  subject_template: "Daily Junior/Grad Jobs – Adelaide & Melbourne – {date}"
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+
+sources:
+  prosple:
+    enabled: true
+    rate_limit_seconds: 2
+  gradconnection:
+    enabled: true
+    rate_limit_seconds: 2
+  seek:
+    enabled: true
+    rate_limit_seconds: 2
+  linkedin:
+    enabled: true
+    rate_limit_seconds: 3
+  jora:
+    enabled: false       # disabled: Jora now requires JavaScript for search
+  email_alerts:
+    enabled: false
