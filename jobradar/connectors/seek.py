@@ -31,6 +31,29 @@ _SEARCH_TERMS = [
     "junior developer",
 ]
 
+# Targeted company/government searches – run without city restriction (Australia-wide)
+# so we catch roles at these specific employers regardless of office location.
+_COMPANY_SEARCHES = [
+    # Big 4 + Accenture
+    "Deloitte graduate technology",
+    "KPMG technology graduate",
+    "PwC graduate program technology",
+    "EY technology graduate",
+    "Accenture associate developer",
+    "Accenture graduate technology",
+    # Tech companies
+    "Canva software engineer",
+    "Canva graduate developer",
+    # Government
+    "SA government software developer",
+    "SA government ICT graduate",
+    "VIC government software developer",
+    "VIC government ICT graduate",
+    "APS graduate ICT",
+    "Australian government graduate technology",
+    "Department of software developer Australia",
+]
+
 _BASE_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -51,6 +74,7 @@ class SeekConnector(BaseConnector):
     def fetch(self, locations: List[str], keywords: List[str]) -> List[Dict[str, Any]]:
         jobs: List[Dict[str, Any]] = []
 
+        # Standard location-based searches
         for location in locations:
             where = _LOCATION_QUERIES.get(location, location)
             for term in _SEARCH_TERMS:
@@ -62,15 +86,26 @@ class SeekConnector(BaseConnector):
                     print(f"[Seek] Error {location}/{term}: {exc}")
                 self._sleep()
 
+        # Targeted company/government searches (Australia-wide, no city filter)
+        # location_override="Australia" makes them pass the pipeline's location filter
+        for term in _COMPANY_SEARCHES:
+            try:
+                results = self._search(term, None, "Australia", location_override="Australia")
+                jobs.extend(results)
+                print(f"[Seek] Company/Gov / '{term}' → {len(results)} jobs")
+            except Exception as exc:
+                print(f"[Seek] Error company/{term}: {exc}")
+            self._sleep()
+
         return jobs
 
     def _search(
-        self, keywords: str, where: str, location_label: str
+        self, keywords: str, where: str | None, location_label: str,
+        location_override: str | None = None,
     ) -> List[Dict[str, Any]]:
-        params = {
+        params: Dict[str, Any] = {
             "siteKey": "AU-Main",
             "sourcesystem": "houston",
-            "where": where,
             "page": 1,
             "pageSize": 20,
             "keywords": keywords,
@@ -78,15 +113,18 @@ class SeekConnector(BaseConnector):
             "locale": "en-AU",
             "sortMode": "ListedDate",   # newest first
         }
+        if where:
+            params["where"] = where
         resp = requests.get(
             _API_URL, params=params, headers=_BASE_HEADERS, timeout=15
         )
         resp.raise_for_status()
         data = resp.json()
-        return self._parse(data.get("data", []), location_label)
+        return self._parse(data.get("data", []), location_label, location_override)
 
     def _parse(
-        self, items: List[Dict], location_label: str
+        self, items: List[Dict], location_label: str,
+        location_override: str | None = None,
     ) -> List[Dict[str, Any]]:
         jobs = []
         for item in items:
@@ -100,12 +138,12 @@ class SeekConnector(BaseConnector):
                     or item.get("advertiser", {}).get("description", "Unknown")
                 )
 
-                # Location: Seek returns a locations list
-                locs = item.get("locations") or []
-                if locs:
-                    loc_label = locs[0].get("label", location_label)
+                # Location: use override (for company/govt searches) or Seek's value
+                if location_override:
+                    loc_label = location_override
                 else:
-                    loc_label = location_label
+                    locs = item.get("locations") or []
+                    loc_label = locs[0].get("label", location_label) if locs else location_label
 
                 # URL: build from job id
                 job_id = item.get("id") or item.get("roleId", "")

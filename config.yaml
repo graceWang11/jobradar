@@ -61,6 +61,15 @@ sources:
   linkedin:
     enabled: true
     rate_limit_seconds: 3
+  indeed:
+    enabled: true
+    rate_limit_seconds: 3
+  company_careers:
+    enabled: true
+    rate_limit_seconds: 2
+  govt_careers:
+    enabled: true
+    rate_limit_seconds: 2
   jora:
     enabled: false       # disabled: Jora now requires JavaScript for search
   email_alerts:

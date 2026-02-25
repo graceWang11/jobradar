@@ -17,8 +17,11 @@ from datetime import date
 from typing import List
 
 from jobradar.config.loader import load_config, load_env, get_locations
+from jobradar.connectors.company_careers import CompanyCareersConnector
 from jobradar.connectors.email_alerts import EmailAlertsConnector
+from jobradar.connectors.govt_careers import GovtCareersConnector
 from jobradar.connectors.gradconnection import GradConnectionConnector
+from jobradar.connectors.indeed import IndeedConnector
 from jobradar.connectors.jora import JoraConnector
 from jobradar.connectors.linkedin import LinkedInConnector
 from jobradar.connectors.prosple import ProspleConnector
@@ -125,6 +128,24 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         connector.rate_limit_seconds = sources_cfg.get("linkedin", {}).get("rate_limit_seconds", 3.0)
         raw = connector.fetch(locations, keywords)
         all_listings.extend(normalize_many(raw, "LinkedIn"))
+
+    if sources_cfg.get("indeed", {}).get("enabled", False):
+        connector = IndeedConnector()
+        connector.rate_limit_seconds = sources_cfg.get("indeed", {}).get("rate_limit_seconds", 3.0)
+        raw = connector.fetch(locations, keywords)
+        all_listings.extend(normalize_many(raw, "Indeed"))
+
+    if sources_cfg.get("company_careers", {}).get("enabled", True):
+        connector = CompanyCareersConnector()
+        connector.rate_limit_seconds = sources_cfg.get("company_careers", {}).get("rate_limit_seconds", 2.0)
+        raw = connector.fetch(locations, keywords)
+        all_listings.extend(normalize_many(raw, "CompanyCareers"))
+
+    if sources_cfg.get("govt_careers", {}).get("enabled", True):
+        connector = GovtCareersConnector()
+        connector.rate_limit_seconds = sources_cfg.get("govt_careers", {}).get("rate_limit_seconds", 2.0)
+        raw = connector.fetch(locations, keywords)
+        all_listings.extend(normalize_many(raw, "GovtCareers"))
 
     if sources_cfg.get("jora", {}).get("enabled", False):
         connector = JoraConnector()
@@ -240,13 +261,17 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         title      = j.title.lower()
         summary    = j.summary.lower()
         combined   = f"{title} {summary}"
-        has_level  = any(p.search(combined) for p in _LEVEL_PATTERNS)
-        has_role   = any(p.search(combined) for p in _TECH_ROLE_PATTERNS)
         has_non_it = bool(_NON_IT_TITLE_WORDS.search(title))
         has_senior = bool(_SENIOR_TITLE_WORDS.search(title))
-        # Strong tech title alone is sufficient (level comes from the search query)
+        if has_non_it or has_senior:
+            return False
+        # Company & govt career pages are pre-targeted — only need an IT role, no level keyword
+        if j.source in ("CompanyCareers", "GovtCareers"):
+            return any(p.search(combined) for p in _TECH_ROLE_PATTERNS)
+        has_level   = any(p.search(combined) for p in _LEVEL_PATTERNS)
+        has_role    = any(p.search(combined) for p in _TECH_ROLE_PATTERNS)
         strong_tech = bool(_STRONG_TECH_TITLES.search(title))
-        return (has_role or strong_tech) and not has_non_it and not has_senior and (has_level or strong_tech)
+        return (has_role or strong_tech) and (has_level or strong_tech)
 
     before_rel = len(all_listings)
     all_listings = [j for j in all_listings if j.title and _is_relevant(j)]
