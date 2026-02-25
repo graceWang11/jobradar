@@ -61,9 +61,11 @@ sources:
   linkedin:
     enabled: true
     rate_limit_seconds: 3
+  adzuna:
+    enabled: true        # covers Indeed + Jora + 50 other boards — needs ADZUNA_APP_ID / ADZUNA_APP_KEY
+    rate_limit_seconds: 2
   indeed:
-    enabled: true
-    rate_limit_seconds: 3
+    enabled: false       # blocked — use Adzuna instead
   company_careers:
     enabled: true
     rate_limit_seconds: 2

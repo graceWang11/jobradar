@@ -36,6 +36,8 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           SMTP_SERVER: smtp.gmail.com
           SMTP_PORT: "587"
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
         run: python -m jobradar run
 
       - name: Save dedup state back to repo

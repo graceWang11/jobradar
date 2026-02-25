@@ -17,6 +17,7 @@ from datetime import date
 from typing import List
 
 from jobradar.config.loader import load_config, load_env, get_locations
+from jobradar.connectors.adzuna import AdzunaConnector
 from jobradar.connectors.company_careers import CompanyCareersConnector
 from jobradar.connectors.email_alerts import EmailAlertsConnector
 from jobradar.connectors.govt_careers import GovtCareersConnector
@@ -129,11 +130,12 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         raw = connector.fetch(locations, keywords)
         all_listings.extend(normalize_many(raw, "LinkedIn"))
 
-    if sources_cfg.get("indeed", {}).get("enabled", False):
-        connector = IndeedConnector()
-        connector.rate_limit_seconds = sources_cfg.get("indeed", {}).get("rate_limit_seconds", 3.0)
+    if sources_cfg.get("adzuna", {}).get("enabled", True):
+        # Adzuna aggregates Indeed, Jora + 50 other boards via free API
+        connector = AdzunaConnector()
+        connector.rate_limit_seconds = sources_cfg.get("adzuna", {}).get("rate_limit_seconds", 2.0)
         raw = connector.fetch(locations, keywords)
-        all_listings.extend(normalize_many(raw, "Indeed"))
+        all_listings.extend(normalize_many(raw, "Adzuna"))
 
     if sources_cfg.get("company_careers", {}).get("enabled", True):
         connector = CompanyCareersConnector()
