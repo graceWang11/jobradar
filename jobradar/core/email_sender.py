@@ -103,13 +103,39 @@ def send_email(
         )
         msg.attach(part)
 
-    try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
+    raw = msg.as_string()
+
+    def _try_starttls() -> None:
+        """Port 587 with STARTTLS (standard)."""
+        with smtplib.SMTP(smtp_server, smtp_port, timeout=15) as server:
             server.ehlo()
             server.starttls()
             server.login(sender, password)
-            server.sendmail(sender, [recipient], msg.as_string())
+            server.sendmail(sender, [recipient], raw)
+
+    def _try_ssl() -> None:
+        """Port 465 with implicit SSL (fallback when 587 is blocked)."""
+        with smtplib.SMTP_SSL(smtp_server, 465, timeout=15) as server:
+            server.login(sender, password)
+            server.sendmail(sender, [recipient], raw)
+
+    try:
+        _try_starttls()
         print(f"[email] Sent to {recipient} ✓")
+        return True
+    except (TimeoutError, OSError):
+        print("[email] Port 587 timed out — retrying on port 465/SSL …")
+        try:
+            _try_ssl()
+            print(f"[email] Sent to {recipient} via SSL ✓")
+            return True
+        except (TimeoutError, OSError):
+            print(
+                "[email] Both ports 587 and 465 timed out.\n"
+                "[email] Your network/ISP is blocking outbound SMTP."
+            )
+        except Exception as exc:
+            print(f"[email] Failed to send: {exc}")
     except Exception as exc:
         print(f"[email] Failed to send: {exc}")
-        raise
+    return False

@@ -16,6 +16,8 @@ import sys
 from datetime import date
 from typing import List
 
+import subprocess
+
 from jobradar.config.loader import load_config, load_env, get_locations
 from jobradar.connectors.adzuna import AdzunaConnector
 from jobradar.connectors.company_careers import CompanyCareersConnector
@@ -386,16 +388,22 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
 
     # ── 5. Output ─────────────────────────────────────────────────────────────
     csv_path = save_csv(scored, run_date)
-    save_html(scored, run_date)
+    html_path = save_html(scored, run_date)
     if not args.no_markdown:
         save_markdown(scored, run_date)
 
-    # ── 6. Email ──────────────────────────────────────────────────────────────
+    # ── 6. Email / browser fallback ───────────────────────────────────────────
+    email_sent = False
     skip_email = args.dry_run or args.no_email
     if not skip_email:
-        send_email(scored, csv_path, run_date)
+        email_sent = send_email(scored, csv_path, run_date)
     else:
         print("[jobradar] Email skipped (--dry-run or --no-email).")
+
+    # Auto-open HTML report in browser if email wasn't sent
+    if not email_sent and not args.dry_run and html_path and html_path.exists():
+        print(f"[jobradar] Opening report in browser: {html_path}")
+        subprocess.run(["open", str(html_path)], check=False)
 
     print(f"\n[jobradar] Done. {len(scored)} new jobs saved to output/")
 

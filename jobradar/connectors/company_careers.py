@@ -25,6 +25,8 @@ _HEADERS = {
     ),
     "Accept": "application/json, */*",
     "Accept-Language": "en-AU,en;q=0.9",
+    # Exclude zstd — requests can't decode it without the zstandard package
+    "Accept-Encoding": "gzip, deflate, br",
 }
 
 _GRAD_QUERIES = [
