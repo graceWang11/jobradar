@@ -36,6 +36,7 @@ _LOCATION_QUERIES: Dict[str, str] = {
 }
 
 _SEARCH_TERMS = [
+    # Software / developer
     "junior software engineer",
     "graduate developer",
     "graduate software engineer",
@@ -43,6 +44,18 @@ _SEARCH_TERMS = [
     "associate software engineer",
     "entry level software developer",
     "graduate program technology",
+    # Technology consulting
+    "graduate technology consultant",
+    "junior technology consultant",
+    "technology consulting graduate",
+    # Cloud / DevOps / Platform
+    "graduate cloud engineer",
+    "junior cloud engineer",
+    "graduate devops engineer",
+    "cloud graduate program",
+    # Solutions / architecture
+    "associate solutions architect",
+    "graduate solutions architect",
 ]
 
 _TRACKING_PARAM_RE = re.compile(r"\?.*")

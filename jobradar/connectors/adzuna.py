@@ -22,12 +22,25 @@ from jobradar.connectors.base import BaseConnector
 _BASE_URL = "https://api.adzuna.com/v1/api/jobs/au/search/{page}"
 
 _SEARCH_TERMS = [
+    # Software / developer
     "junior software engineer",
     "graduate developer",
     "associate software engineer",
     "entry level software developer",
     "graduate technology program",
     "junior developer",
+    # Technology consulting
+    "graduate technology consultant",
+    "junior technology consultant",
+    "technology consulting graduate",
+    # Cloud / DevOps / Platform
+    "graduate cloud engineer",
+    "junior cloud engineer",
+    "graduate devops engineer",
+    "cloud graduate program",
+    # Solutions / architecture
+    "associate solutions architect",
+    "graduate solutions architect",
 ]
 
 

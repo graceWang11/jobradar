@@ -23,24 +23,47 @@ _LOCATION_QUERIES: Dict[str, str] = {
 }
 
 _SEARCH_TERMS = [
+    # Software / developer
     "junior software engineer",
     "graduate developer",
     "entry level software developer",
     "associate software engineer",
     "graduate software program",
     "junior developer",
+    # Technology consulting
+    "graduate technology consultant",
+    "junior technology consultant",
+    "technology consulting graduate",
+    # Cloud / DevOps / Platform
+    "graduate cloud engineer",
+    "junior cloud engineer",
+    "graduate devops engineer",
+    "cloud graduate program",
+    # Solutions / architecture
+    "associate solutions architect",
+    "graduate solutions architect",
 ]
 
 # Targeted company/government searches – run without city restriction (Australia-wide)
 # so we catch roles at these specific employers regardless of office location.
 _COMPANY_SEARCHES = [
-    # Big 4 + Accenture
+    # Big 4 + Accenture (consulting + technology tracks)
     "Deloitte graduate technology",
+    "Deloitte graduate consultant technology",
     "KPMG technology graduate",
+    "KPMG technology consultant graduate",
     "PwC graduate program technology",
     "EY technology graduate",
+    "EY technology consultant",
     "Accenture associate developer",
     "Accenture graduate technology",
+    "Accenture technology consultant graduate",
+    # Global IT consulting / services
+    "IBM graduate technology",
+    "IBM technology consultant",
+    "DXC technology graduate",
+    "Capgemini graduate Australia",
+    "Cognizant technology graduate",
     # Tech companies
     "Canva software engineer",
     "Canva graduate developer",

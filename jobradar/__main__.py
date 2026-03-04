@@ -205,6 +205,12 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
                   "associate", "early career", "cadet", "intern"]
     ]
 
+    # Descriptions saying "1-3 years experience" (or 0-2, 0-3, 1-2) count as entry-level
+    _EXP_RANGE_PATTERN = _re.compile(
+        r'\b[0-3]\s*[-–]\s*[1-3]\s*\+?\s*years?\s+(?:of\s+)?(?:experience|exp)\b',
+        _re.I,
+    )
+
     # IT-domain phrases — word-boundary matched so "engineer" alone doesn't
     # catch "civil engineer", but "software" / "technology" etc. are fine.
     _TECH_ROLE_PATTERNS = [
@@ -218,6 +224,12 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
             "cyber", "cybersecurity", "information security", "network engineer",
             "systems engineer", "computer science", "it graduate", "it program",
             "architect",
+            # Technology Consulting track
+            "technology consultant", "it consultant", "solutions consultant",
+            "technology consulting", "digital consultant", "consulting program",
+            # Cloud / DevOps / Platform extensions
+            "cloud", "cloud architect", "cloud operations",
+            "site reliability", "infrastructure engineer",
             # Program / domain signals
             "technology graduate", "tech graduate", "technology program",
             "technology internship", "tech internship",
@@ -255,6 +267,8 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         r'data engineer|data analyst|data scientist|cloud engineer|'
         r'platform engineer|machine learning engineer|ml engineer|'
         r'systems engineer|network engineer|cyber|cybersecurity|'
+        r'technology consultant|it consultant|solutions consultant|'
+        r'cloud architect|site reliability engineer|'
         r'developer|programmer)\b',
         _re.I,
     )
@@ -270,7 +284,10 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         # Company & govt career pages are pre-targeted — only need an IT role, no level keyword
         if j.source in ("CompanyCareers", "GovtCareers"):
             return any(p.search(combined) for p in _TECH_ROLE_PATTERNS)
-        has_level   = any(p.search(combined) for p in _LEVEL_PATTERNS)
+        has_level   = (
+            any(p.search(combined) for p in _LEVEL_PATTERNS)
+            or bool(_EXP_RANGE_PATTERN.search(combined))
+        )
         has_role    = any(p.search(combined) for p in _TECH_ROLE_PATTERNS)
         strong_tech = bool(_STRONG_TECH_TITLES.search(title))
         return (has_role or strong_tech) and (has_level or strong_tech)
@@ -311,6 +328,47 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
 
     if not all_listings:
         print("[jobradar] No listings remain after resume fit filter.")
+        return
+
+    # ── 4d. Visa eligibility filter ───────────────────────────────────────────
+    # Check description for citizenship/PR restrictions.
+    # "national police check" is a 485-friendly signal → always keep.
+    # No visa mention → keep. Explicit citizen/PR requirement → exclude.
+    _VISA_RESTRICT_PATTERN = _re.compile(
+        r'\b('
+        r'must be (an? )?australian citizen|'
+        r'australian citizen(ship)? (is )?required|'
+        r'requires? (permanent residency|permanent resident)|'
+        r'(permanent resident|pr holder)s? only|'
+        r'(citizen|citizenship) and (permanent )?resident|'
+        r'must hold (an? )?australian citizenship|'
+        r'only (open|available) to (australian )?(citizen|permanent resident)'
+        r')\b',
+        _re.I,
+    )
+    _POLICE_CHECK_PATTERN = _re.compile(
+        r'\bnational\s+police\s+(check|clearance)\b', _re.I
+    )
+
+    def _passes_visa(j) -> bool:
+        combined = f"{j.title} {j.summary}"
+        # National police check → explicitly visa-holder friendly, keep always
+        if _POLICE_CHECK_PATTERN.search(combined):
+            return True
+        # Explicit citizenship/PR requirement → exclude
+        if _VISA_RESTRICT_PATTERN.search(combined):
+            return False
+        return True
+
+    before_visa = len(all_listings)
+    all_listings = [j for j in all_listings if _passes_visa(j)]
+    print(
+        f"[jobradar] After visa eligibility filter: {len(all_listings)} "
+        f"(removed {before_visa - len(all_listings)} citizen/PR-only roles)"
+    )
+
+    if not all_listings:
+        print("[jobradar] No listings remain after visa eligibility filter.")
         return
 
     # ── 5. Deduplicate ────────────────────────────────────────────────────────

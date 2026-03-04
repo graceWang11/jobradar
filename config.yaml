@@ -18,6 +18,18 @@ keywords:
       - "web developer"
       - "devops engineer"
       - "platform engineer"
+    consulting:
+      - "technology consultant"
+      - "it consultant"
+      - "solutions consultant"
+      - "technology consulting"
+      - "digital consultant"
+    cloud_devops:
+      - "cloud engineer"
+      - "cloud architect"
+      - "cloud operations"
+      - "site reliability engineer"
+      - "infrastructure engineer"
     architecture:
       - "junior architect"
       - "associate architect"
@@ -27,6 +39,8 @@ keywords:
       - "graduate program"
       - "graduate programme"
       - "tech graduate"
+      - "technology consultant graduate"
+      - "consulting graduate program"
       - "rotation program"
       - "rotational program"
       - "internship"
