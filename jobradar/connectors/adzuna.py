@@ -29,18 +29,29 @@ _SEARCH_TERMS = [
     "entry level software developer",
     "graduate technology program",
     "junior developer",
-    # Technology consulting
+    "graduate software engineer",
+    # Technology consulting (Laiya's current career track)
     "graduate technology consultant",
     "junior technology consultant",
     "technology consulting graduate",
+    "associate technology consultant",
+    "junior IT consultant",
+    "graduate technical consultant",
+    # IT Architecture / Integration (Laiya's strength)
+    "associate solutions architect",
+    "graduate solutions architect",
+    "junior solutions architect",
+    "junior integration developer",
+    "graduate integration engineer",
+    "junior API developer",
     # Cloud / DevOps / Platform
     "graduate cloud engineer",
     "junior cloud engineer",
     "graduate devops engineer",
     "cloud graduate program",
-    # Solutions / architecture
-    "associate solutions architect",
-    "graduate solutions architect",
+    # Data & Analytics
+    "graduate data analyst",
+    "junior data engineer",
 ]
 
 

@@ -30,40 +30,71 @@ _SEARCH_TERMS = [
     "associate software engineer",
     "graduate software program",
     "junior developer",
-    # Technology consulting
+    "graduate software engineer",
+    # Technology consulting (Laiya's current career track)
     "graduate technology consultant",
     "junior technology consultant",
     "technology consulting graduate",
+    "associate technology consultant",
+    "junior IT consultant",
+    "graduate ICT consultant",
+    "junior technical consultant",
+    "graduate technical consultant",
+    # IT Architecture (Laiya's integration/API background)
+    "associate solutions architect",
+    "graduate solutions architect",
+    "junior solutions architect",
+    "graduate enterprise architect",
+    "junior integration developer",
+    "graduate integration engineer",
+    "junior API developer",
+    "graduate API developer",
     # Cloud / DevOps / Platform
     "graduate cloud engineer",
     "junior cloud engineer",
     "graduate devops engineer",
     "cloud graduate program",
-    # Solutions / architecture
-    "associate solutions architect",
-    "graduate solutions architect",
+    # Data & Analytics
+    "graduate data analyst",
+    "junior data engineer",
+    "graduate data engineer",
 ]
 
 # Targeted company/government searches – run without city restriction (Australia-wide)
 # so we catch roles at these specific employers regardless of office location.
 _COMPANY_SEARCHES = [
-    # Big 4 + Accenture (consulting + technology tracks)
+    # Big 4 + Accenture — technology consulting & architecture tracks
     "Deloitte graduate technology",
-    "Deloitte graduate consultant technology",
+    "Deloitte graduate technology consultant",
+    "Deloitte graduate solutions architect",
     "KPMG technology graduate",
     "KPMG technology consultant graduate",
+    "KPMG solutions architect graduate",
     "PwC graduate program technology",
+    "PwC technology consultant graduate",
     "EY technology graduate",
     "EY technology consultant",
+    "EY solutions architect",
     "Accenture associate developer",
     "Accenture graduate technology",
     "Accenture technology consultant graduate",
+    "Accenture solutions architect graduate",
     # Global IT consulting / services
     "IBM graduate technology",
     "IBM technology consultant",
+    "IBM solutions architect",
     "DXC technology graduate",
+    "DXC solutions architect",
     "Capgemini graduate Australia",
+    "Capgemini solutions architect",
     "Cognizant technology graduate",
+    "Infosys graduate technology consultant",
+    "Wipro graduate technology",
+    "TCS graduate technology consultant",
+    # Integration / Architecture specialists
+    "Mulesoft integration developer graduate",
+    "Boomi integration graduate",
+    "AWS solutions architect associate",
     # Tech companies
     "Canva software engineer",
     "Canva graduate developer",

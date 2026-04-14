@@ -30,6 +30,7 @@ from jobradar.connectors.linkedin import LinkedInConnector
 from jobradar.connectors.prosple import ProspleConnector
 from jobradar.connectors.seek import SeekConnector
 from jobradar.core.dedupe import deduplicate, reset_state
+from jobradar.core.description_fetcher import fetch_descriptions
 from jobradar.core.models import JobListing
 from jobradar.core.normalize import normalize_many
 from jobradar.core.output import save_csv, save_html, save_markdown
@@ -213,6 +214,25 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         _re.I,
     )
 
+    # Hard-exclude: job requires 3+ years experience — not suitable for Laiya.
+    # Catches both the teaser and (later) the full description.
+    _EXP_OVERQUALIFIED = _re.compile(
+        # "3+ years experience", "3-5 years experience", "3 to 5 years"
+        r'\b[3-9]\+\s*years?\s+(?:of\s+)?(?:relevant\s+|professional\s+|industry\s+|work\s+)?(?:experience|exp)\b|'
+        r'\b[3-9]\s*[-–]\s*\d+\s*years?\s+(?:of\s+)?(?:relevant\s+|professional\s+|industry\s+)?(?:experience|exp)\b|'
+        r'\b[3-9]\s+to\s+\d+\s*years?\s+(?:of\s+)?(?:experience|exp)\b|'
+        # plain "3 years experience" (no plus sign)
+        r'\b3\s+years?\s+(?:of\s+)?(?:relevant\s+|professional\s+|industry\s+|work\s+)?(?:experience|exp)\b|'
+        # "minimum 3 years", "at least 3 years"
+        r'\bminimum\s+(?:of\s+)?[3-9]\s*\+?\s*years?\s*(?:of\s+)?(?:experience|exp)?\b|'
+        r'\bat\s+least\s+[3-9]\s*years?\s*(?:of\s+)?(?:experience|exp)?\b|'
+        # "5 years of experience" (no plus)
+        r'\b[5-9]\s+years?\s+(?:of\s+)?(?:relevant\s+|professional\s+|industry\s+)?(?:experience|exp)\b|'
+        # "three or more years"
+        r'\bthree\s+(?:or\s+more\s+)?years?\s+(?:of\s+)?(?:experience|exp)\b',
+        _re.I,
+    )
+
     # IT-domain phrases — word-boundary matched so "engineer" alone doesn't
     # catch "civil engineer", but "software" / "technology" etc. are fine.
     _TECH_ROLE_PATTERNS = [
@@ -225,13 +245,21 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
             "data engineer", "data analyst", "data scientist", "data analytics",
             "cyber", "cybersecurity", "information security", "network engineer",
             "systems engineer", "computer science", "it graduate", "it program",
-            "architect",
-            # Technology Consulting track
+            # IT Architecture (Laiya's core strength)
+            "solutions architect", "enterprise architect", "integration architect",
+            "api architect", "cloud architect", "technical architect",
+            "it architect", "architect",
+            # IT / Technology Consulting (Laiya's current role)
             "technology consultant", "it consultant", "solutions consultant",
             "technology consulting", "digital consultant", "consulting program",
+            "technical consultant", "ict consultant", "associate consultant",
+            "graduate consultant",
+            # Integration / API / DevOps
+            "integration developer", "integration engineer", "api developer",
+            "api engineer", "platform engineer", "site reliability",
+            "infrastructure engineer",
             # Cloud / DevOps / Platform extensions
-            "cloud", "cloud architect", "cloud operations",
-            "site reliability", "infrastructure engineer",
+            "cloud", "cloud operations", "cloud architect", "cloud engineer",
             # Program / domain signals
             "technology graduate", "tech graduate", "technology program",
             "technology internship", "tech internship",
@@ -241,16 +269,34 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
             "analytics",         # "Data & Analytics"
             "digital",           # "Digital Graduate Program"
             "information technology", "information systems",
+            "ict",               # ICT Graduate Program
         ]
     ]
 
-    # Non-IT exclusion: if title contains these words AND no strong IT signal,
-    # it is likely a civil/mining/finance role — skip it.
+    # Non-IT exclusion: title contains these → skip.
+    # Catches civil/mining/finance AND non-software roles that slip through.
     _NON_IT_TITLE_WORDS = _re.compile(
         r'\b(civil|mechanical|hydro|structural|geotechnical|mining|'
         r'chemical|electrical wiring|audit|accounting|actuari|'
         r'banking|finance|financial planning|wealth|insurance|legal|law|'
-        r'nursing|medical|pharmacy|physiother|dental|clinical)\b',
+        r'nursing|medical|pharmacy|physiother|dental|clinical|'
+        r'tax\b|taxation\b|graphic design|graphic designer|'
+        # Sales — always exclude, regardless of "technology" modifier
+        r'sales representative|account executive|business development representative|'
+        r'sales consultant|sales engineer|pre.?sales|inside sales|'
+        r'business administrator|'
+        r'compliance assistant|compliance officer|'
+        r'content developer|content writer|copywriter|'
+        # HR / recruitment
+        r'recruiter|talent acquisition|human resources\b|'
+        # Non-IT consulting
+        r'management consultant|strategy consultant|'
+        # Marketing
+        r'marketing coordinator|marketing assistant|digital marketing|'
+        # Physical / trades / non-tech industries in title
+        r'construction|golf course|site administrator|landscap|'
+        r'plumb|electri(?:cian)|carpenter|cabinet maker|'
+        r'warehouse|logistics coordinator|supply chain coordinator)\b',
         _re.I,
     )
 
@@ -261,38 +307,44 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         _re.I,
     )
 
-    # Strong standalone IT titles that pass without needing a level keyword.
-    # These are unambiguous enough that any result from our junior/grad searches is worth showing.
-    _STRONG_TECH_TITLES = _re.compile(
-        r'\b(software engineer|software developer|full.?stack|fullstack|'
-        r'devops|backend|frontend|web developer|mobile developer|'
-        r'data engineer|data analyst|data scientist|cloud engineer|'
-        r'platform engineer|machine learning engineer|ml engineer|'
-        r'systems engineer|network engineer|cyber|cybersecurity|'
-        r'technology consultant|it consultant|solutions consultant|'
-        r'cloud architect|site reliability engineer|'
-        r'developer|programmer)\b',
+    # Designated/identified roles — not eligible for Laiya
+    _DESIGNATED_ROLE_PATTERN = _re.compile(
+        r'\b(designated indigenous|indigenous identified|'
+        r'first nations identified|aboriginal and torres strait|'
+        r'indigenous role|identified position)\b',
         _re.I,
     )
 
     def _is_relevant(j) -> bool:
-        title      = j.title.lower()
-        summary    = j.summary.lower()
-        combined   = f"{title} {summary}"
-        has_non_it = bool(_NON_IT_TITLE_WORDS.search(title))
-        has_senior = bool(_SENIOR_TITLE_WORDS.search(title))
-        if has_non_it or has_senior:
+        title    = j.title.lower()
+        summary  = j.summary.lower()
+        combined = f"{title} {summary}"
+
+        if bool(_NON_IT_TITLE_WORDS.search(title)):
             return False
-        # Company & govt career pages are pre-targeted — only need an IT role, no level keyword
-        if j.source in ("CompanyCareers", "GovtCareers"):
-            return any(p.search(combined) for p in _TECH_ROLE_PATTERNS)
-        has_level   = (
+        if bool(_SENIOR_TITLE_WORDS.search(title)):
+            return False
+        if bool(_DESIGNATED_ROLE_PATTERN.search(combined)):
+            return False
+        # Explicitly overqualified experience requirement in teaser
+        if bool(_EXP_OVERQUALIFIED.search(combined)):
+            return False
+
+        has_role  = any(p.search(combined) for p in _TECH_ROLE_PATTERNS)
+        has_level = (
             any(p.search(combined) for p in _LEVEL_PATTERNS)
             or bool(_EXP_RANGE_PATTERN.search(combined))
         )
-        has_role    = any(p.search(combined) for p in _TECH_ROLE_PATTERNS)
-        strong_tech = bool(_STRONG_TECH_TITLES.search(title))
-        return (has_role or strong_tech) and (has_level or strong_tech)
+
+        # Company & govt career pages are pre-targeted — only need an IT role
+        if j.source in ("CompanyCareers", "GovtCareers"):
+            return has_role
+
+        # All other sources (Seek, LinkedIn, Prosple, GradConnection, Adzuna):
+        # require BOTH a level keyword AND an IT role.
+        # Removed the "strong_tech" bypass — it was letting through senior roles
+        # (e.g. "Agentic Data Engineer", "Cloud Architect") from company-targeted searches.
+        return has_role and has_level
 
     before_rel = len(all_listings)
     all_listings = [j for j in all_listings if j.title and _is_relevant(j)]
@@ -333,31 +385,110 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         return
 
     # ── 4d. Visa eligibility filter ───────────────────────────────────────────
-    # Check description for citizenship/PR restrictions.
-    # "national police check" is a 485-friendly signal → always keep.
-    # No visa mention → keep. Explicit citizen/PR requirement → exclude.
+    # Three layers: (1) explicit text patterns, (2) security clearances,
+    # (3) known defence/federal-govt employers that always require citizenship.
+
+    # Layer 1 – explicit citizenship/PR phrases in title or teaser
     _VISA_RESTRICT_PATTERN = _re.compile(
-        r'\b('
         r'must be (an? )?australian citizen|'
         r'australian citizen(ship)? (is )?required|'
         r'requires? (permanent residency|permanent resident)|'
         r'(permanent resident|pr holder)s? only|'
         r'(citizen|citizenship) and (permanent )?resident|'
         r'must hold (an? )?australian citizenship|'
-        r'only (open|available) to (australian )?(citizen|permanent resident)'
+        r'only (open|available) to (australian )?(citizen|permanent resident)|'
+        r'citizen or permanent resident|'
+        r'citizens? and permanent residents?|'
+        r'permanent work rights required|'
+        r'must have permanent.*work rights|'
+        r'must hold permanent (work )?rights',
+        _re.I,
+    )
+
+    # Layer 2 – security clearance requirements (require citizenship in Australia)
+    _CLEARANCE_RESTRICT_PATTERN = _re.compile(
+        r'\b('
+        r'nv1|nv2|'
+        r'positive vetting|pv clearance|pv cleared|pv-cleared|'
+        r'top secret clearance|'
+        r'baseline clearance required|baseline clearance is required|'
+        r'clearance required|must hold.{0,20}clearance|'
+        r'requires?.{0,15}security clearance'
         r')\b',
         _re.I,
     )
+
+    # Layer 3a – Australian federal government jobs require citizenship by law
+    # APS level designations (APS1–APS6, EL1, EL2) = federal public service
+    _FED_GOV_CITIZENSHIP_PATTERN = _re.compile(
+        r'\b('
+        r'aps\s*[1-6]\b|el\s*[12]\b|'
+        r'australian government graduate program|aggp|'
+        r'australian public service\b'
+        r')\b',
+        _re.I,
+    )
+
+    # Layer 3b – Known defence/intelligence companies where citizenship is
+    # a near-certain requirement even when not stated in the teaser.
+    # Uses word-boundary match (not anchors) to catch "Boeing Defence Australia", etc.
+    _DEFENCE_COMPANIES = _re.compile(
+        r'\b('
+        r'saab|sypaq|aurizn|kinexus|anduril|'
+        r'lockheed\s+martin|bae\s+systems|thales\s+australia|raytheon|'
+        r'northrop\s+grumman|boeing|leidos|l3harris|frequentis|'
+        r'defence\s+science\s+and\s+technology'
+        r')\b',
+        _re.I,
+    )
+
+    # Layer 3d – Job title explicitly says "Defence [Graduate] Program" or similar
+    # → citizenship required regardless of company shown.
+    _DEFENCE_TITLE_PATTERN = _re.compile(
+        r'\bdefence\s+(graduate|digital|data|technology|cyber|engineering|program)\b',
+        _re.I,
+    )
+
+    # Layer 3c – Known federal government agencies requiring citizenship
+    _FED_GOV_COMPANIES = _re.compile(
+        r'^('
+        r'australian taxation office|'
+        r'public service commission|'
+        r'australian bureau of statistics|'
+        r'department of home affairs|'
+        r'australian signals directorate|'
+        r'australian security intelligence organisation'
+        r')$',
+        _re.I,
+    )
+
     _POLICE_CHECK_PATTERN = _re.compile(
         r'\bnational\s+police\s+(check|clearance)\b', _re.I
     )
 
     def _passes_visa(j) -> bool:
         combined = f"{j.title} {j.summary}"
-        # National police check → explicitly visa-holder friendly, keep always
+        company  = j.company.strip()
+
+        # National police check → explicitly 485-friendly, always keep
         if _POLICE_CHECK_PATTERN.search(combined):
             return True
-        # Explicit citizenship/PR requirement → exclude
+        # Security clearance in title/teaser → citizenship required
+        if _CLEARANCE_RESTRICT_PATTERN.search(combined):
+            return False
+        # Federal government APS/AGGP roles → citizenship required
+        if _FED_GOV_CITIZENSHIP_PATTERN.search(combined):
+            return False
+        # "Defence Graduate Program / Defence Digital Pathway" in title → citizenship required
+        if _DEFENCE_TITLE_PATTERN.search(j.title):
+            return False
+        # Known defence companies → citizenship almost certain
+        if _DEFENCE_COMPANIES.search(company):
+            return False
+        # Known federal government employers → citizenship required
+        if _FED_GOV_COMPANIES.search(company):
+            return False
+        # Explicit citizenship/PR restriction in text
         if _VISA_RESTRICT_PATTERN.search(combined):
             return False
         return True
@@ -366,7 +497,7 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
     all_listings = [j for j in all_listings if _passes_visa(j)]
     print(
         f"[jobradar] After visa eligibility filter: {len(all_listings)} "
-        f"(removed {before_visa - len(all_listings)} citizen/PR-only roles)"
+        f"(removed {before_visa - len(all_listings)} citizen/PR-only or clearance roles)"
     )
 
     if not all_listings:
@@ -379,6 +510,56 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
 
     if not fresh:
         print("[jobradar] No new listings after deduplication.")
+        return
+
+    # ── 5b. Fetch full descriptions & apply deep content filters ──────────────
+    # Only run for new jobs (post-dedupe) to avoid hundreds of HTTP requests.
+    # Fail-open: if a description cannot be fetched, the job is kept.
+    fetch_descriptions(fresh, delay=1.5)
+
+    # Pattern: any mention of "3 years" in an experience context → exclude.
+    # Checks BOTH the teaser/title (already checked above) AND the full
+    # description body, catching clauses like "Requirements: 3 years experience".
+    _EXP_THREE_YEARS_FULL = _re.compile(
+        r'\b3\s*\+?\s*years?\s+(?:of\s+)?(?:relevant\s+|professional\s+|industry\s+|work\s+)?'
+        r'(?:experience|exp)\b|'
+        r'\b3\s*[-–]\s*\d+\s*years?\s+(?:of\s+)?(?:experience|exp)\b|'
+        r'\b3\s+to\s+\d+\s*years?\s+(?:of\s+)?(?:experience|exp)\b|'
+        r'\bminimum\s+(?:of\s+)?3\s*\+?\s*years?\b|'
+        r'\bat\s+least\s+3\s*years?\b|'
+        r'\bthree\s+(?:or\s+more\s+)?years?\s+(?:of\s+)?(?:experience|exp)\b|'
+        r'\b[3-9]\+?\s*years?\s+experience\b',
+        _re.I,
+    )
+
+    def _passes_description_check(j) -> bool:
+        desc = j.description
+        # Only apply if we actually retrieved meaningful description text
+        if not desc or len(desc) < 100:
+            return True  # fail-open — couldn't fetch, keep the job
+        # Check full description for 3-year experience requirements
+        if _EXP_THREE_YEARS_FULL.search(desc):
+            print(f"[DescFilter] REMOVED (3yr exp in desc): {j.title!r} @ {j.company}")
+            return False
+        # Check full description for citizenship/PR restrictions
+        if _VISA_RESTRICT_PATTERN.search(desc):
+            print(f"[DescFilter] REMOVED (citizen/PR in desc): {j.title!r} @ {j.company}")
+            return False
+        # Check full description for overqualified experience patterns
+        if _EXP_OVERQUALIFIED.search(desc):
+            print(f"[DescFilter] REMOVED (overqualified exp in desc): {j.title!r} @ {j.company}")
+            return False
+        return True
+
+    before_desc = len(fresh)
+    fresh = [j for j in fresh if _passes_description_check(j)]
+    print(
+        f"[jobradar] After description content filter: {len(fresh)} "
+        f"(removed {before_desc - len(fresh)} with 3yr-exp or citizen/PR clauses in body)"
+    )
+
+    if not fresh:
+        print("[jobradar] No listings remain after description content filter.")
         return
 
     # ── 4. Visa scoring ───────────────────────────────────────────────────────

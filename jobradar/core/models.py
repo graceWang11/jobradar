@@ -19,6 +19,7 @@ class JobListing:
     url: str
     date_found: date
     summary: str = ""
+    description: str = ""      # full job description (fetched after initial filtering)
     tags: List[str] = field(default_factory=list)
     visa_score: int = -1       # -1 = not yet scored; 0–5 once scored
     visa_reason: str = ""
@@ -42,6 +43,7 @@ class JobListing:
             "url": self.url,
             "date_found": self.date_found.isoformat(),
             "summary": self.summary,
+            "description": self.description,
             "tags": "|".join(self.tags),
             "visa_score": self.visa_score,
             "visa_reason": self.visa_reason,
@@ -63,6 +65,7 @@ class JobListing:
             url=d["url"],
             date_found=date.fromisoformat(d["date_found"]),
             summary=d.get("summary", ""),
+            description=d.get("description", ""),
             tags=tags,
             visa_score=int(d.get("visa_score", -1)),
             visa_reason=d.get("visa_reason", ""),
