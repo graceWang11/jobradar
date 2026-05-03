@@ -424,18 +424,35 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
 
     # Layer 1 – explicit citizenship/PR phrases in title or teaser
     _VISA_RESTRICT_PATTERN = _re.compile(
+        # Explicit citizenship
         r'must be (an? )?australian citizen|'
         r'australian citizen(ship)? (is )?required|'
-        r'requires? (permanent residency|permanent resident)|'
-        r'(permanent resident|pr holder)s? only|'
-        r'(citizen|citizenship) and (permanent )?resident|'
         r'must hold (an? )?australian citizenship|'
-        r'only (open|available) to (australian )?(citizen|permanent resident)|'
+        r'holds? (an? )?australian citizenship|'
+        r'hold(ing)? australian citizenship|'
+        # Permanent residency
+        r'requires? (permanent residency|permanent resident)|'
+        r'must hold permanent residency|'
+        r'holds? permanent residency|'
+        r'must be (an? )?(australian )?permanent resident|'
+        r'(permanent resident|pr holder)s? only|'
+        # Citizen OR/AND resident combined
+        r'(citizen|citizenship) and (permanent )?resident|'
         r'citizen or permanent resident|'
         r'citizens? and permanent residents?|'
+        r'(australian )?citizen(ship)? or (permanent )?resident|'
+        r'must be (a |an )?(citizen|resident).{0,30}(or|and).{0,30}(citizen|resident)|'
+        # Only open to
+        r'only (open|available) to (australian )?(citizen|permanent resident)|'
+        r'restricted to (australian )?(citizens?|permanent residents?)|'
+        r'(open only|available only) to (australian )?(citizens?|permanent residents?)|'
+        # Permanent work rights
         r'permanent work rights required|'
         r'must have permanent.*work rights|'
-        r'must hold permanent (work )?rights',
+        r'must hold permanent (work )?rights|'
+        r'work rights? must be permanent|'
+        r'require(s)? permanent (work )?rights|'
+        r'full permanent (work |working )?rights',
         _re.I,
     )
 
@@ -578,23 +595,49 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         _re.I,
     )
 
+    # Sources where description fetch is intentionally skipped — no inference possible.
+    # For these, the title+teaser visa check is the only signal we have; the description
+    # check passes through silently (not fail-open, just no-op).
+    _SKIP_DESCRIPTION_SOURCES = {"seek.com.au", "linkedin.com"}
+
     def _passes_description_check(j) -> bool:
         desc = j.description
-        # Only apply if we actually retrieved meaningful description text
+
+        # Intentionally skipped sources: description will never be available.
+        # The full visa check already ran on title+teaser in _passes_visa.
+        if not desc and any(s in j.url for s in _SKIP_DESCRIPTION_SOURCES):
+            return True
+
+        # Genuine fetch failure or very short response → fail-open (keep the job)
         if not desc or len(desc) < 100:
-            return True  # fail-open — couldn't fetch, keep the job
-        # Check full description for 3-year experience requirements
+            return True
+
+        # ── experience gating ────────────────────────────────────────────────
         if _EXP_THREE_YEARS_FULL.search(desc):
             print(f"[DescFilter] REMOVED (3yr exp in desc): {j.title!r} @ {j.company}")
             return False
-        # Check full description for citizenship/PR restrictions
-        if _VISA_RESTRICT_PATTERN.search(desc):
-            print(f"[DescFilter] REMOVED (citizen/PR in desc): {j.title!r} @ {j.company}")
-            return False
-        # Check full description for overqualified experience patterns
         if _EXP_OVERQUALIFIED.search(desc):
             print(f"[DescFilter] REMOVED (overqualified exp in desc): {j.title!r} @ {j.company}")
             return False
+
+        # ── full visa eligibility re-check against description body ──────────
+        # Catches requirements buried in the JD that weren't in the teaser.
+        if _VISA_RESTRICT_PATTERN.search(desc):
+            print(f"[DescFilter] REMOVED (citizen/PR in desc): {j.title!r} @ {j.company}")
+            return False
+        if _CITIZEN_IN_TITLE_PATTERN.search(desc):
+            print(f"[DescFilter] REMOVED (citizenship phrase in desc): {j.title!r} @ {j.company}")
+            return False
+        if _CLEARANCE_RESTRICT_PATTERN.search(desc):
+            print(f"[DescFilter] REMOVED (clearance in desc): {j.title!r} @ {j.company}")
+            return False
+        if _FED_GOV_CITIZENSHIP_PATTERN.search(desc):
+            print(f"[DescFilter] REMOVED (APS/fed-gov level in desc): {j.title!r} @ {j.company}")
+            return False
+        if _DEFENCE_TITLE_PATTERN.search(desc):
+            print(f"[DescFilter] REMOVED (defence program in desc): {j.title!r} @ {j.company}")
+            return False
+
         return True
 
     before_desc = len(fresh)
