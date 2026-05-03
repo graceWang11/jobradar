@@ -246,9 +246,14 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
             "cyber", "cybersecurity", "information security", "network engineer",
             "systems engineer", "computer science", "it graduate", "it program",
             # IT Architecture (Laiya's core strength)
+            # NOTE: bare "architect" intentionally EXCLUDED — too broad (catches building/landscape architects).
+            # All forms below require an IT qualifier in the phrase itself.
             "solutions architect", "enterprise architect", "integration architect",
             "api architect", "cloud architect", "technical architect",
-            "it architect", "architect",
+            "it architect", "software architect", "data architect",
+            "security architect", "application architect", "infrastructure architect",
+            "platform architect", "systems architect", "network architect",
+            "solution architect",  # singular variant
             # IT / Technology Consulting (Laiya's current role)
             "technology consultant", "it consultant", "solutions consultant",
             "technology consulting", "digital consultant", "consulting program",
@@ -281,22 +286,36 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         r'banking|finance|financial planning|wealth|insurance|legal|law|'
         r'nursing|medical|pharmacy|physiother|dental|clinical|'
         r'tax\b|taxation\b|graphic design|graphic designer|'
+        # Non-IT architecture (building/construction/design disciplines)
+        r'landscape architect|interior architect|urban architect|'
+        r'building architect|heritage architect|urban designer|'
         # Sales — always exclude, regardless of "technology" modifier
-        r'sales representative|account executive|business development representative|'
+        r'sales representative|sales associate|account executive|'
+        r'business development representative|'
         r'sales consultant|sales engineer|pre.?sales|inside sales|'
         r'business administrator|'
         r'compliance assistant|compliance officer|'
         r'content developer|content writer|copywriter|'
         # HR / recruitment
         r'recruiter|talent acquisition|human resources\b|'
-        # Non-IT consulting
+        # Non-IT consulting / strategy
         r'management consultant|strategy consultant|'
+        r'strategy.*operations|consumer strategy|'
         # Marketing
         r'marketing coordinator|marketing assistant|digital marketing|'
+        # Finance / quant (not software development)
+        r'investment quant|quant analyst|quant developer|'
+        # Physical / engineering disciplines that are NOT software
+        r'mechatronics|control systems engineer|drilling engineer|'
+        r'hardware engineer|product hardware|'
+        r'apparel|fashion|textile|'
+        r'supply chain\b|logistics coordinator|'
+        # Research roles outside IT
+        r'sheep production|agricultural research|grant.?funded research|'
         # Physical / trades / non-tech industries in title
         r'construction|golf course|site administrator|landscap|'
         r'plumb|electri(?:cian)|carpenter|cabinet maker|'
-        r'warehouse|logistics coordinator|supply chain coordinator)\b',
+        r'warehouse)\b',
         _re.I,
     )
 
@@ -457,13 +476,22 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         r'australian bureau of statistics|'
         r'department of home affairs|'
         r'australian signals directorate|'
-        r'australian security intelligence organisation'
+        r'australian security intelligence organisation|'
+        r'australian secret intelligence service|'  # ASIS
+        r'australian federal police|'
+        r'department of defence'
         r')$',
         _re.I,
     )
 
     _POLICE_CHECK_PATTERN = _re.compile(
         r'\bnational\s+police\s+(check|clearance)\b', _re.I
+    )
+
+    # Citizenship mentioned IN the job title itself → hard requirement (e.g. "Junior X | Australian citizen")
+    _CITIZEN_IN_TITLE_PATTERN = _re.compile(
+        r'australian\s+citizen(?:ship)?|citizen(?:ship)?\s+required',
+        _re.I,
     )
 
     def _passes_visa(j) -> bool:
@@ -473,6 +501,9 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         # National police check → explicitly 485-friendly, always keep
         if _POLICE_CHECK_PATTERN.search(combined):
             return True
+        # Citizenship explicitly in job title → hard requirement
+        if _CITIZEN_IN_TITLE_PATTERN.search(j.title):
+            return False
         # Security clearance in title/teaser → citizenship required
         if _CLEARANCE_RESTRICT_PATTERN.search(combined):
             return False
