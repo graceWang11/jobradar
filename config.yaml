@@ -86,6 +86,12 @@ sources:
   govt_careers:
     enabled: true
     rate_limit_seconds: 2
+  greenhouse:
+    enabled: true        # Greenhouse ATS — covers Canva, Xero, Atlassian, REA Group, etc.
+    rate_limit_seconds: 1.5
+  lever:
+    enabled: false       # Lever ATS — API mostly migrated away; re-verify slugs before enabling
+    rate_limit_seconds: 1.5
   jora:
     enabled: false       # disabled: Jora now requires JavaScript for search
   email_alerts:

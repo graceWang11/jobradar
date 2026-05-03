@@ -3,13 +3,19 @@
 Scores each job 0–10 based on how many of Laiya's technical skills appear
 in the job text (title + summary + description).
 
+At module load the scorer tries to parse Laiya_Wang_AWS.pdf via pdfplumber
+and builds the skill list from the resume text. When the PDF is updated the
+next run automatically picks up new skills — no manual regex edits required.
+
+If pdfplumber is unavailable or the PDF can't be read the scorer falls back
+to a hardcoded skill list that mirrors the current resume.
+
 Skill weights:
   3 — core stack (daily tools, strongest claims on resume)
   2 — strong supporting skills
   1 — familiar / transferable skills
 
-Normalisation: raw points are capped at _FULL_MATCH_THRESHOLD and scaled to 0–10.
-A job mentioning 3+ core skills + 2+ strong skills gets a 10.
+Normalisation: raw points capped at _FULL_MATCH_THRESHOLD → scaled 0–10.
 """
 
 from __future__ import annotations
@@ -18,48 +24,56 @@ import re
 from typing import List, Tuple
 
 from jobradar.core.models import JobListing
+from jobradar.core.resume_parser import extract_skills_from_pdf
 
-
-# (regex_pattern, weight, display_name)
-_SKILLS: List[Tuple[str, int, str]] = [
-    # Core stack — weight 3
-    (r'\bc#\b|c\s*sharp\b', 3, "C#"),
-    (r'\.net\b|dotnet\b|asp\.net\b', 3, ".NET"),
-    (r'\bpython\b', 3, "Python"),
-    (r'\btypescript\b', 3, "TypeScript"),
-    (r'\breact\b', 3, "React"),
-    (r'\bsql\b', 3, "SQL"),
-    (r'\baws\b|amazon\s+web\s+services\b', 3, "AWS"),
-
-    # Strong skills — weight 2
-    (r'\bazure\b', 2, "Azure"),
-    (r'\bdocker\b', 2, "Docker"),
+# ── Hardcoded fallback (mirrors current resume; used when PDF parse fails) ──────
+_FALLBACK_SKILLS: List[Tuple[str, int, str]] = [
+    # Core
+    (r'(?<!\w)c#(?!\w)|c\s*sharp\b',                  3, "C#"),
+    (r'\.net\b|dotnet\b|asp\.net\b',                 3, ".NET"),
+    (r'\bpython\b',                                  3, "Python"),
+    (r'\btypescript\b',                              3, "TypeScript"),
+    (r'\breact\b',                                   3, "React"),
+    (r'\bsql\b',                                     3, "SQL"),
+    (r'\baws\b|amazon\s+web\s+services\b',            3, "AWS"),
+    # Strong
+    (r'\bazure\b',                                   2, "Azure"),
+    (r'\bdocker\b',                                  2, "Docker"),
     (r'\bci[/\s\-]?cd\b|continuous\s+integration\b', 2, "CI/CD"),
-    (r'\bdevops\b|dev\s*ops\b', 2, "DevOps"),
-    (r'\bnode\.?js\b|nodejs\b', 2, "Node.js"),
-    (r'\brest\s*(?:ful\s*)?api\b', 2, "REST API"),
-    (r'\bmicroservice', 2, "Microservices"),
+    (r'\bdevops\b|dev\s*ops\b',                      2, "DevOps"),
+    (r'\bnode\.?js\b|nodejs\b',                      2, "Node.js"),
+    (r'\brest\s*(?:ful\s*)?api\b',                   2, "REST API"),
+    (r'\bmicroservice',                              2, "Microservices"),
     (r'\bintegration\s+(?:developer|engineer|architect|specialist)\b', 2, "Integration Dev"),
-    (r'\bkubernetes\b|\bk8s\b', 2, "Kubernetes"),
-    (r'\bpower\s+automate\b', 2, "Power Automate"),
-    (r'\boracle\b', 2, "Oracle"),
-
-    # Familiar / transferable — weight 1
-    (r'\bgit\b|github\b|gitlab\b', 1, "Git"),
-    (r'\blinux\b|ubuntu\b|debian\b', 1, "Linux"),
-    (r'\bagile\b|\bscrum\b', 1, "Agile"),
-    (r'\bjavascript\b|\bjs\b', 1, "JavaScript"),
-    (r'\bcloud\b', 1, "Cloud"),
-    (r'\bpostgres(?:ql)?\b', 1, "PostgreSQL"),
-    (r'\bhadoop\b', 1, "Hadoop"),
-    (r'\bapi\b', 1, "API"),
-    (r'\buml\b', 1, "UML"),
-    (r'\bhtml\b', 1, "HTML"),
-    (r'\bcss\b', 1, "CSS"),
+    (r'\bkubernetes\b|\bk8s\b',                      2, "Kubernetes"),
+    (r'\bpower\s+automate\b',                        2, "Power Automate"),
+    (r'\boracle\b',                                  2, "Oracle"),
+    (r'\bn8n\b',                                     2, "n8n"),
+    # Familiar
+    (r'\bgit\b|github\b|gitlab\b',                   1, "Git"),
+    (r'\blinux\b|ubuntu\b|debian\b',                 1, "Linux"),
+    (r'\bagile\b|\bscrum\b',                         1, "Agile"),
+    (r'\bjavascript\b|\bjs\b',                       1, "JavaScript"),
+    (r'\bcloud\b',                                   1, "Cloud"),
+    (r'\bpostgres(?:ql)?\b',                         1, "PostgreSQL"),
+    (r'\bhadoop\b',                                  1, "Hadoop"),
+    (r'\bapi\b',                                     1, "API"),
+    (r'\buml\b',                                     1, "UML"),
+    (r'\bhtml\b',                                    1, "HTML"),
+    (r'\bcss\b',                                     1, "CSS"),
+    (r'\bdns\b',                                     1, "DNS"),
+    (r'\bnginx\b',                                   1, "Nginx"),
 ]
 
-# Raw score a "very good match" job would have (~4 core + 2 strong + 2 familiar)
-_FULL_MATCH_THRESHOLD = 4 * 3 + 2 * 2 + 2 * 1  # = 18
+# ── Load skills from PDF (auto-updates when resume changes) ─────────────────────
+_parsed = extract_skills_from_pdf()
+if _parsed:
+    _SKILLS = _parsed
+    print(f"[ResumeScorer] Loaded {len(_SKILLS)} skills from Laiya_Wang_AWS.pdf")
+else:
+    _SKILLS = _FALLBACK_SKILLS
+
+_FULL_MATCH_THRESHOLD = 4 * 3 + 2 * 2 + 2 * 1  # = 18 → "very good match" raw score
 
 _COMPILED = [(re.compile(pat, re.I), w, name) for pat, w, name in _SKILLS]
 

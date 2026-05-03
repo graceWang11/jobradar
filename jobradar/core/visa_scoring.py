@@ -8,6 +8,7 @@ Score range: 0 – 5
 
 from __future__ import annotations
 
+import re
 from typing import List, Tuple
 
 from jobradar.core.models import JobListing
@@ -36,6 +37,29 @@ _SOFT_NEGATIVES: List[Tuple[str, int, str]] = [
     ("permanent work rights", -2, "Permanent work rights required"),
     ("must have full working rights", -2, "Full working rights required"),
 ]
+
+# Companies with a demonstrated history of sponsoring visas in Australia.
+# Large multinationals and Big-4 consulting firms routinely sponsor 482/485 holders.
+# Jobs at these employers get +1 even when the JD says nothing explicit — moving
+# them from neutral (2) to mildly positive (3) so they sort above true unknowns.
+_KNOWN_SPONSORS = re.compile(
+    r'\b('
+    # Big 4 + Accenture consulting
+    r'deloitte|kpmg|pricewaterhousecoopers|pwc\b|ernst\s*&\s*young|\bey\b|accenture|'
+    # Global IT services
+    r'ibm\b|capgemini|cognizant|infosys|wipro\b|tata\s+consultancy|\btcs\b|dxc\b|'
+    r'thoughtworks|ntt\s+data|'
+    # Big tech with AU presence
+    r'google\b|microsoft\b|amazon\b|\baws\b|salesforce|oracle\b|sap\b|'
+    r'servicenow|atlassian|canva\b|xero\b|'
+    # Major AU banks — all sponsor
+    r'national\s+australia\s+bank|\bnab\b|\banz\b|westpac|commonwealth\s+bank|macquarie\b|'
+    # Big AU tech / scale-ups
+    r'rea\s+group|realestate\.com|cultureamp|culture\s+amp|deputy\b|buildkite|'
+    r'airwallex|afterpay|\bblock\b'
+    r')\b',
+    re.I,
+)
 
 _POSITIVES: List[Tuple[str, int, str]] = [
     ("visa sponsorship", +3, "Visa sponsorship available"),
@@ -81,6 +105,11 @@ def score_job(job: JobListing) -> JobListing:
         if phrase in text:
             score += delta
             reasons.append(f"[+] {label}")
+
+    # Known sponsor employer → nudge from neutral (2) to mildly positive (3)
+    if _KNOWN_SPONSORS.search(job.company):
+        score += 1
+        reasons.append("[+] Known visa-sponsoring employer")
 
     job.visa_score = max(0, min(5, score))
     job.visa_reason = "; ".join(reasons) if reasons else "No specific signals found"

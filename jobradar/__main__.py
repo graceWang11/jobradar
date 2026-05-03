@@ -24,8 +24,10 @@ from jobradar.connectors.company_careers import CompanyCareersConnector
 from jobradar.connectors.email_alerts import EmailAlertsConnector
 from jobradar.connectors.govt_careers import GovtCareersConnector
 from jobradar.connectors.gradconnection import GradConnectionConnector
+from jobradar.connectors.greenhouse import GreenhouseConnector
 from jobradar.connectors.indeed import IndeedConnector
 from jobradar.connectors.jora import JoraConnector
+from jobradar.connectors.lever import LeverConnector
 from jobradar.connectors.linkedin import LinkedInConnector
 from jobradar.connectors.prosple import ProspleConnector
 from jobradar.connectors.seek import SeekConnector
@@ -158,6 +160,18 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         connector.rate_limit_seconds = sources_cfg.get("jora", {}).get("rate_limit_seconds", 2.0)
         raw = connector.fetch(locations, keywords)
         all_listings.extend(normalize_many(raw, "Jora"))
+
+    if sources_cfg.get("greenhouse", {}).get("enabled", True):
+        connector = GreenhouseConnector()
+        connector.rate_limit_seconds = sources_cfg.get("greenhouse", {}).get("rate_limit_seconds", 1.5)
+        raw = connector.fetch(locations, keywords)
+        all_listings.extend(normalize_many(raw, "Greenhouse"))
+
+    if sources_cfg.get("lever", {}).get("enabled", True):
+        connector = LeverConnector()
+        connector.rate_limit_seconds = sources_cfg.get("lever", {}).get("rate_limit_seconds", 1.5)
+        raw = connector.fetch(locations, keywords)
+        all_listings.extend(normalize_many(raw, "Lever"))
 
     if sources_cfg.get("email_alerts", {}).get("enabled", False):
         connector = EmailAlertsConnector()
