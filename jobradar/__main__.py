@@ -442,7 +442,18 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         r'citizens? and permanent residents?|'
         r'(australian )?citizen(ship)? or (permanent )?resident|'
         r'must be (a |an )?(citizen|resident).{0,30}(or|and).{0,30}(citizen|resident)|'
-        # Only open to
+        # "citizens only" / "citizens and residents only"
+        r'australian citizens?\s+only|'
+        # "must/should/need to be a citizen of Australia"
+        r'be\s+a\s+citizen\s+of\s+australia|'
+        # Structured field formats used in govt/defence JDs
+        r'citizenship\s*:\s*australian|'
+        r'eligibility\s*:\s*(must\s+be\s+)?(an?\s+)?(australian\s+)?citizen|'
+        # "Australian citizenship is/are mandatory/required/essential/compulsory"
+        r'australian citizenship\s+(is\s+|are\s+)?(required|mandatory|necessary|essential|compulsory|a must)|'
+        # "applicants/candidates must be (Australian) citizens"
+        r'(applicant|candidate)s?\s+must\s+(be|hold)\s+(an?\s+)?(australian\s+)?citizen|'
+        # "only open to / restricted to / available to"
         r'only (open|available) to (australian )?(citizen|permanent resident)|'
         r'restricted to (australian )?(citizens?|permanent residents?)|'
         r'(open only|available only) to (australian )?(citizens?|permanent residents?)|'

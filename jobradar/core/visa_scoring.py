@@ -106,8 +106,10 @@ def score_job(job: JobListing) -> JobListing:
             score += delta
             reasons.append(f"[+] {label}")
 
-    # Known sponsor employer → nudge from neutral (2) to mildly positive (3)
-    if _KNOWN_SPONSORS.search(job.company):
+    # Known sponsor employer → nudge from neutral (2) to mildly positive (3).
+    # Skip the boost if any negative signal was already found — a Deloitte role
+    # that says "Australian citizenship required" should score 0, not 1.
+    if _KNOWN_SPONSORS.search(job.company) and score >= 2:
         score += 1
         reasons.append("[+] Known visa-sponsoring employer")
 
