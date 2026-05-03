@@ -23,6 +23,8 @@ class JobListing:
     tags: List[str] = field(default_factory=list)
     visa_score: int = -1       # -1 = not yet scored; 0–5 once scored
     visa_reason: str = ""
+    match_score: int = -1      # 0–10 resume skill match; -1 = not yet scored
+    match_skills: str = ""     # comma-separated matched skill names
     hash_id: str = ""
 
     def __post_init__(self) -> None:
@@ -47,6 +49,8 @@ class JobListing:
             "tags": "|".join(self.tags),
             "visa_score": self.visa_score,
             "visa_reason": self.visa_reason,
+            "match_score": self.match_score,
+            "match_skills": self.match_skills,
             "hash_id": self.hash_id,
         }
 
@@ -69,5 +73,7 @@ class JobListing:
             tags=tags,
             visa_score=int(d.get("visa_score", -1)),
             visa_reason=d.get("visa_reason", ""),
+            match_score=int(d.get("match_score", -1)),
+            match_skills=d.get("match_skills", ""),
             hash_id=d.get("hash_id", ""),
         )

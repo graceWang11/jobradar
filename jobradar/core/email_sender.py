@@ -15,11 +15,52 @@ from typing import List
 from jobradar.core.models import JobListing
 
 
+def _build_top5_email(jobs: List[JobListing]) -> str:
+    candidates = sorted(jobs, key=lambda j: -(j.match_score * 2 + j.visa_score))
+    top5 = candidates[:5]
+    if not top5:
+        return ""
+    items = []
+    for i, j in enumerate(top5, 1):
+        match_str = f"{j.match_score}/10" if j.match_score >= 0 else "–"
+        visa_str = f"{j.visa_score}/5" if j.visa_score >= 0 else "–"
+        items.append(
+            f'<tr style="background:#f0f7ff">'
+            f'<td style="padding:8px;font-weight:bold">{i}</td>'
+            f'<td style="padding:8px"><a href="{j.url}" style="color:#1a6fa0">{j.title}</a></td>'
+            f'<td style="padding:8px">{j.company}</td>'
+            f'<td style="padding:8px">{j.location}</td>'
+            f'<td style="padding:8px;color:#1a6fa0;font-weight:bold">{match_str}</td>'
+            f'<td style="padding:8px;color:green;font-weight:bold">{visa_str}</td>'
+            f'<td style="padding:8px;color:#555;font-size:11px">{j.match_skills}</td>'
+            f'</tr>'
+        )
+    rows_html = "\n".join(items)
+    return f"""\
+<h3 style="color:#1a6fa0;margin-bottom:6px">&#11088; Top 5 – Apply Today</h3>
+<table border="1" cellspacing="0" cellpadding="0"
+       style="border-collapse:collapse;font-size:12px;margin-bottom:20px">
+  <thead style="background:#1a6fa0;color:white">
+    <tr>
+      <th style="padding:6px">#</th><th style="padding:6px">Title</th>
+      <th style="padding:6px">Company</th><th style="padding:6px">Location</th>
+      <th style="padding:6px">Match</th><th style="padding:6px">Visa</th>
+      <th style="padding:6px">Skills</th>
+    </tr>
+  </thead>
+  <tbody>
+{rows_html}
+  </tbody>
+</table>
+"""
+
+
 def build_html_body(jobs: List[JobListing], run_date: date) -> str:
     """Inline HTML email body (compact table)."""
     rows = []
     for j in jobs:
         score_color = "green" if j.visa_score >= 4 else ("red" if j.visa_score <= 1 else "gray")
+        match_color = "#1a6fa0" if j.match_score >= 6 else "#888"
         rows.append(
             f"<tr>"
             f"<td>{j.date_found}</td>"
@@ -28,21 +69,27 @@ def build_html_body(jobs: List[JobListing], run_date: date) -> str:
             f"<td>{j.company}</td>"
             f"<td>{j.location}</td>"
             f"<td>{', '.join(j.tags)}</td>"
+            f'<td style="color:{match_color};font-weight:bold">{j.match_score if j.match_score >= 0 else "–"}</td>'
+            f'<td style="font-size:11px;color:#555">{j.match_skills}</td>'
             f'<td style="color:{score_color};font-weight:bold">{j.visa_score if j.visa_score >= 0 else "–"}</td>'
             f"<td>{j.visa_reason}</td>"
             f"</tr>"
         )
 
     table_rows = "\n".join(rows)
+    top5_block = _build_top5_email(jobs)
     return f"""\
-<html><body>
-<h2>JobRadar – Daily Junior/Grad Jobs</h2>
+<html><body style="font-family:Arial,sans-serif;font-size:13px">
+<h2 style="color:#2c3e50">JobRadar – Daily Junior/Grad Jobs</h2>
 <p>Adelaide &amp; Melbourne | {run_date} | <strong>{len(jobs)} new listings</strong></p>
+{top5_block}
+<h3 style="color:#2c3e50">All New Jobs</h3>
 <table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;font-size:12px">
 <thead style="background:#2c3e50;color:white">
   <tr>
     <th>Date</th><th>Source</th><th>Title</th><th>Company</th>
-    <th>Location</th><th>Tags</th><th>Visa</th><th>Visa Reason</th>
+    <th>Location</th><th>Tags</th><th>Match</th><th>Skills</th>
+    <th>Visa</th><th>Visa Reason</th>
   </tr>
 </thead>
 <tbody>

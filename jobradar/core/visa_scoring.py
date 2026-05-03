@@ -41,20 +41,29 @@ _POSITIVES: List[Tuple[str, int, str]] = [
     ("visa sponsorship", +3, "Visa sponsorship available"),
     ("sponsorship available", +3, "Visa sponsorship available"),
     ("sponsor visa", +3, "Visa sponsorship available"),
+    ("we sponsor", +3, "Visa sponsorship available"),
     ("international candidates", +2, "International candidates welcome"),
     ("international students", +2, "International students welcome"),
     ("welcome international", +2, "International candidates welcome"),
+    ("open to international", +2, "International candidates welcome"),
+    ("all nationalities", +2, "All nationalities welcome"),
+    ("diverse background", +1, "Diversity-inclusive employer"),
     ("temporary visa", +2, "Temporary visa accepted"),
     ("temporary work visa", +2, "Temporary visa accepted"),
+    ("all visa types", +3, "All visa types accepted"),
     ("work rights in australia", +1, "Work rights in Australia mentioned"),
     ("485", +2, "485 visa mentioned"),
     ("graduate visa", +2, "Graduate visa (485) mentioned"),
+    ("subclass 485", +3, "485 visa explicitly mentioned"),
+    ("working holiday", +1, "Working holiday visa mentioned (open employer)"),
 ]
 
 
 def score_job(job: JobListing) -> JobListing:
     """Compute and attach visa_score + visa_reason to a JobListing (in-place)."""
-    text = f"{job.title} {job.summary}".lower()
+    # Include description when available — many positive signals (sponsorship, diversity
+    # statements) only appear in the full JD body, not the teaser.
+    text = f"{job.title} {job.summary} {job.description}".lower()
     score = 2  # neutral starting point (mid of 0–5, slightly pessimistic)
     reasons: List[str] = []
 

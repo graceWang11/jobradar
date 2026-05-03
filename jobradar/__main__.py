@@ -35,6 +35,7 @@ from jobradar.core.models import JobListing
 from jobradar.core.normalize import normalize_many
 from jobradar.core.output import save_csv, save_html, save_markdown
 from jobradar.core.visa_scoring import score_all
+from jobradar.core.resume_scorer import score_all_matches
 from jobradar.core.email_sender import send_email
 
 
@@ -593,10 +594,11 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         print("[jobradar] No listings remain after description content filter.")
         return
 
-    # ── 4. Visa scoring ───────────────────────────────────────────────────────
+    # ── 4. Visa scoring + resume match scoring ────────────────────────────────
     scored = score_all(fresh)
-    # Sort: high visa score first, then alphabetically by title
-    scored.sort(key=lambda j: (-j.visa_score, j.title.lower()))
+    score_all_matches(scored)
+    # Sort: combined priority (match × 2 + visa), then title
+    scored.sort(key=lambda j: (-(j.match_score * 2 + j.visa_score), j.title.lower()))
 
     # ── 5. Output ─────────────────────────────────────────────────────────────
     csv_path = save_csv(scored, run_date)
