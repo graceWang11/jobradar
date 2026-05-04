@@ -92,6 +92,15 @@ sources:
   lever:
     enabled: false       # Lever ATS — API mostly migrated away; re-verify slugs before enabling
     rate_limit_seconds: 1.5
+  ashby:
+    enabled: true        # Ashby ATS — AU companies: Airwallex, Xero, Zip, Rokt, Dovetail, etc.
+    rate_limit_seconds: 1.5
+  smartrecruiters:
+    enabled: true        # SmartRecruiters ATS — Canva (302 jobs), SEEK (80), Nearmap, Carsales, etc.
+    rate_limit_seconds: 1.5
+  workday:
+    enabled: true        # Workday ATS — NAB, Telstra (ANZ/CBA/BHP paths pending verification)
+    rate_limit_seconds: 2.0
   jora:
     enabled: false       # disabled: Jora now requires JavaScript for search
   email_alerts:
