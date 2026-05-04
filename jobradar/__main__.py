@@ -442,8 +442,12 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         r'citizens? and permanent residents?|'
         r'(australian )?citizen(ship)? or (permanent )?resident|'
         r'must be (a |an )?(citizen|resident).{0,30}(or|and).{0,30}(citizen|resident)|'
-        # "citizens only" / "citizens and residents only"
+        # "citizens only" / "open to Australian citizens [only]"
         r'australian citizens?\s+only|'
+        # Restrictive phrasing: "open to citizens [only/and PRs]" but NOT
+        # "open to Australian citizens and international candidates" (inclusive).
+        # Lookahead stops at "and international" to avoid that false positive.
+        r'open to (australian )?citizens?\b(?!\s+and\s+international\b)|'
         # "must/should/need to be a citizen of Australia"
         r'be\s+a\s+citizen\s+of\s+australia|'
         # Structured field formats used in govt/defence JDs
@@ -665,6 +669,13 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
     # ── 4. Visa scoring + resume match scoring ────────────────────────────────
     scored = score_all(fresh)
     score_all_matches(scored)
+
+    # LinkedIn job descriptions are never fetchable (login required).
+    # Flag these so the daily email shows they need a manual visa check.
+    for j in scored:
+        if "linkedin.com" in j.url and not j.description:
+            j.visa_reason = (j.visa_reason + " [!] LinkedIn: body unverified — check manually").strip()
+
     # Sort: combined priority (match × 2 + visa), then title
     scored.sort(key=lambda j: (-(j.match_score * 2 + j.visa_score), j.title.lower()))
 
