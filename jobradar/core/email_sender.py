@@ -24,6 +24,14 @@ def _build_top5_email(jobs: List[JobListing]) -> str:
     for i, j in enumerate(top5, 1):
         match_str = f"{j.match_score}/10" if j.match_score >= 0 else "–"
         visa_str = f"{j.visa_score}/5" if j.visa_score >= 0 else "–"
+        recruiter_cell = (
+            f'<a href="{j.recruiter_url}" style="color:#1a6fa0;font-size:11px">Find recruiter →</a>'
+            if j.recruiter_url else "–"
+        )
+        outreach_cell = (
+            f'<span style="font-family:monospace;font-size:10px;color:#444">{j.outreach_msg}</span>'
+            if j.outreach_msg else ""
+        )
         items.append(
             f'<tr style="background:#f0f7ff">'
             f'<td style="padding:8px;font-weight:bold">{i}</td>'
@@ -33,6 +41,7 @@ def _build_top5_email(jobs: List[JobListing]) -> str:
             f'<td style="padding:8px;color:#1a6fa0;font-weight:bold">{match_str}</td>'
             f'<td style="padding:8px;color:green;font-weight:bold">{visa_str}</td>'
             f'<td style="padding:8px;color:#555;font-size:11px">{j.match_skills}</td>'
+            f'<td style="padding:8px">{recruiter_cell}<br>{outreach_cell}</td>'
             f'</tr>'
         )
     rows_html = "\n".join(items)
@@ -46,6 +55,7 @@ def _build_top5_email(jobs: List[JobListing]) -> str:
       <th style="padding:6px">Company</th><th style="padding:6px">Location</th>
       <th style="padding:6px">Match</th><th style="padding:6px">Visa</th>
       <th style="padding:6px">Skills</th>
+      <th style="padding:6px">Recruiter / Outreach</th>
     </tr>
   </thead>
   <tbody>
@@ -61,6 +71,10 @@ def build_html_body(jobs: List[JobListing], run_date: date) -> str:
     for j in jobs:
         score_color = "green" if j.visa_score >= 4 else ("red" if j.visa_score <= 1 else "gray")
         match_color = "#1a6fa0" if j.match_score >= 6 else "#888"
+        recruiter_cell = (
+            f'<a href="{j.recruiter_url}" style="color:#1a6fa0;font-size:11px">Search →</a>'
+            if j.recruiter_url else "–"
+        )
         rows.append(
             f"<tr>"
             f"<td>{j.date_found}</td>"
@@ -73,6 +87,7 @@ def build_html_body(jobs: List[JobListing], run_date: date) -> str:
             f'<td style="font-size:11px;color:#555">{j.match_skills}</td>'
             f'<td style="color:{score_color};font-weight:bold">{j.visa_score if j.visa_score >= 0 else "–"}</td>'
             f"<td>{j.visa_reason}</td>"
+            f"<td>{recruiter_cell}</td>"
             f"</tr>"
         )
 
@@ -89,7 +104,7 @@ def build_html_body(jobs: List[JobListing], run_date: date) -> str:
   <tr>
     <th>Date</th><th>Source</th><th>Title</th><th>Company</th>
     <th>Location</th><th>Tags</th><th>Match</th><th>Skills</th>
-    <th>Visa</th><th>Visa Reason</th>
+    <th>Visa</th><th>Visa Reason</th><th>Find Contacts</th>
   </tr>
 </thead>
 <tbody>

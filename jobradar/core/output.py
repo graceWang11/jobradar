@@ -37,6 +37,9 @@ _HTML_TEMPLATE = """\
                    margin-bottom: 10px; background: #f0f7ff; }}
     .top5-card h3 {{ margin: 0 0 4px 0; font-size: 14px; }}
     .top5-card p  {{ margin: 2px 0; color: #444; }}
+    .outreach   {{ font-family: monospace; font-size: 11px; background: #fff;
+                   border: 1px dashed #aac; padding: 6px 8px; border-radius: 3px;
+                   white-space: pre-wrap; color: #333; margin-top: 4px; }}
     .badge {{ display: inline-block; border-radius: 3px; padding: 1px 6px;
               font-size: 11px; font-weight: bold; margin-right: 4px; }}
     .badge-match {{ background: #d0eaff; color: #1a6fa0; }}
@@ -57,6 +60,7 @@ _HTML_TEMPLATE = """\
         <th>Location</th><th>Summary</th><th>Tags</th>
         <th>Match</th><th>Match Skills</th>
         <th>Visa</th><th>Visa Reason</th>
+        <th>Find Contacts</th>
       </tr>
     </thead>
     <tbody>
@@ -80,6 +84,7 @@ _ROW_TEMPLATE = """\
         <td>{match_skills}</td>
         <td class="{score_class}">{visa_score}</td>
         <td>{visa_reason}</td>
+        <td>{recruiter_cell}</td>
       </tr>"""
 
 
@@ -103,16 +108,25 @@ def _build_top5_html(jobs: List[JobListing]) -> str:
         return "  <p><em>No scored jobs yet.</em></p>"
     cards = []
     for j in top5:
+        recruiter_link = (
+            f'<a href="{j.recruiter_url}" target="_blank" style="font-size:11px">Find recruiter →</a>'
+            if j.recruiter_url else ""
+        )
+        outreach_block = (
+            f'<div class="outreach">{_esc(j.outreach_msg)}</div>'
+            if j.outreach_msg else ""
+        )
         cards.append(
             f'  <div class="top5-card">'
             f'<h3><a href="{j.url}" target="_blank">{_esc(j.title)}</a> — {_esc(j.company)}</h3>'
-            f'<p>{_esc(j.location)} · {j.source} · {j.date_found}</p>'
+            f'<p>{_esc(j.location)} · {j.source} · {j.date_found} · {recruiter_link}</p>'
             f'<p>'
             f'<span class="badge badge-match">Match {j.match_score}/10</span>'
             f'<span class="badge badge-visa">Visa {j.visa_score}/5</span>'
             f'Skills: {_esc(j.match_skills)}'
             f'</p>'
             f'<p style="color:#555">{_esc(j.summary[:200])}</p>'
+            f'{outreach_block}'
             f'</div>'
         )
     return "\n".join(cards)
@@ -140,6 +154,13 @@ def save_html(jobs: List[JobListing], run_date: date | None = None) -> Path:
 
     rows_html = []
     for j in jobs:
+        if j.recruiter_url:
+            recruiter_cell = (
+                f'<a href="{j.recruiter_url}" target="_blank" style="font-size:11px">'
+                f'Search →</a>'
+            )
+        else:
+            recruiter_cell = ""
         rows_html.append(
             _ROW_TEMPLATE.format(
                 date_found=j.date_found,
@@ -156,6 +177,7 @@ def save_html(jobs: List[JobListing], run_date: date | None = None) -> Path:
                 visa_score=j.visa_score if j.visa_score >= 0 else "–",
                 score_class=_score_class(j.visa_score),
                 visa_reason=_esc(j.visa_reason),
+                recruiter_cell=recruiter_cell,
             )
         )
 

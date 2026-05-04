@@ -25,6 +25,8 @@ class JobListing:
     visa_reason: str = ""
     match_score: int = -1      # 0–10 resume skill match; -1 = not yet scored
     match_skills: str = ""     # comma-separated matched skill names
+    recruiter_url: str = ""    # LinkedIn recruiter search URL
+    outreach_msg: str = ""     # ≤300-char connection-request message
     hash_id: str = ""
 
     def __post_init__(self) -> None:
@@ -51,6 +53,8 @@ class JobListing:
             "visa_reason": self.visa_reason,
             "match_score": self.match_score,
             "match_skills": self.match_skills,
+            "recruiter_url": self.recruiter_url,
+            "outreach_msg": self.outreach_msg,
             "hash_id": self.hash_id,
         }
 
@@ -75,5 +79,7 @@ class JobListing:
             visa_reason=d.get("visa_reason", ""),
             match_score=int(d.get("match_score", -1)),
             match_skills=d.get("match_skills", ""),
+            recruiter_url=d.get("recruiter_url", ""),
+            outreach_msg=d.get("outreach_msg", ""),
             hash_id=d.get("hash_id", ""),
         )

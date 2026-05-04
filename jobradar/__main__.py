@@ -38,6 +38,7 @@ from jobradar.core.normalize import normalize_many
 from jobradar.core.output import save_csv, save_html, save_markdown
 from jobradar.core.visa_scoring import score_all
 from jobradar.core.resume_scorer import score_all_matches
+from jobradar.core.recruiter import enrich_all
 from jobradar.core.email_sender import send_email
 
 
@@ -666,9 +667,10 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
         print("[jobradar] No listings remain after description content filter.")
         return
 
-    # ── 4. Visa scoring + resume match scoring ────────────────────────────────
+    # ── 4. Visa scoring + resume match scoring + recruiter enrichment ─────────
     scored = score_all(fresh)
     score_all_matches(scored)
+    enrich_all(scored)
 
     # LinkedIn job descriptions are never fetchable (login required).
     # Flag these so the daily email shows they need a manual visa check.
