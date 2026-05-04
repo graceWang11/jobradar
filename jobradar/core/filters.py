@@ -289,10 +289,13 @@ def _is_relevant(j: JobListing) -> bool:
         or bool(_EXP_RANGE_PATTERN.search(combined))
     )
 
-    # Pre-targeted sources only need an IT role match
+    # Pre-targeted sources only need an IT role match (level already filtered upstream)
     if j.source in ("CompanyCareers", "GovtCareers", "Greenhouse", "Ashby",
                     "SmartRecruiters", "Workday"):
         return has_role
+
+    # BuiltIn pre-filters by level in the connector, but still needs both
+    # checks to prevent broad patterns (data/technology) matching non-IT summaries
 
     return has_role and has_level
 

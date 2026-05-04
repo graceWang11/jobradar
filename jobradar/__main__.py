@@ -20,6 +20,7 @@ from typing import List
 from jobradar.config.loader import load_config, load_env, get_locations
 from jobradar.connectors.adzuna import AdzunaConnector
 from jobradar.connectors.ashby import AshbyConnector
+from jobradar.connectors.builtin import BuiltInConnector
 from jobradar.connectors.company_careers import CompanyCareersConnector
 from jobradar.connectors.email_alerts import EmailAlertsConnector
 from jobradar.connectors.govt_careers import GovtCareersConnector
@@ -104,6 +105,7 @@ def _collect(cfg: dict, locations: List[str]) -> List[JobListing]:
     _run("ashby",            AshbyConnector)
     _run("smartrecruiters",  SmartRecruitersConnector)
     _run("workday",          WorkdayConnector)
+    _run("builtin",          BuiltInConnector)
     _run("jora",             JoraConnector,          default_enabled=False)
     _run("lever",            LeverConnector,         default_enabled=False)
     _run("email_alerts",     EmailAlertsConnector,   default_enabled=False)

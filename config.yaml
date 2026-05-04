@@ -101,6 +101,9 @@ sources:
   workday:
     enabled: true        # Workday ATS — NAB, Telstra (ANZ/CBA/BHP paths pending verification)
     rate_limit_seconds: 2.0
+  builtin:
+    enabled: true        # Built In Melbourne — curated tech-company board (Xero, Square, etc.)
+    rate_limit_seconds: 2.0
   jora:
     enabled: false       # disabled: Jora now requires JavaScript for search
   email_alerts:
