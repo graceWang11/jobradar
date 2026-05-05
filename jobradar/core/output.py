@@ -108,10 +108,25 @@ def _build_top5_html(jobs: List[JobListing]) -> str:
         return "  <p><em>No scored jobs yet.</em></p>"
     cards = []
     for j in top5:
-        recruiter_link = (
-            f'<a href="{j.recruiter_url}" target="_blank" style="font-size:11px">Find recruiter →</a>'
-            if j.recruiter_url else ""
-        )
+        if j.recruiter_contacts:
+            contact_lines = []
+            for c in j.recruiter_contacts[:3]:
+                name = _esc(c.get("name", ""))
+                title = _esc(c.get("title", ""))
+                url = c.get("linkedin_url", "")
+                line = f'<strong>{name}</strong>'
+                if title:
+                    line += f' · {title}'
+                if url:
+                    line += f' <a href="{url}" target="_blank" style="font-size:10px">→</a>'
+                contact_lines.append(line)
+            recruiter_block = " · ".join(contact_lines)
+        else:
+            recruiter_block = (
+                f'<a href="{j.recruiter_url}" target="_blank" style="font-size:11px">'
+                f'Find recruiter →</a>'
+                if j.recruiter_url else ""
+            )
         outreach_block = (
             f'<div class="outreach">{_esc(j.outreach_msg)}</div>'
             if j.outreach_msg else ""
@@ -119,13 +134,14 @@ def _build_top5_html(jobs: List[JobListing]) -> str:
         cards.append(
             f'  <div class="top5-card">'
             f'<h3><a href="{j.url}" target="_blank">{_esc(j.title)}</a> — {_esc(j.company)}</h3>'
-            f'<p>{_esc(j.location)} · {j.source} · {j.date_found} · {recruiter_link}</p>'
+            f'<p>{_esc(j.location)} · {j.source} · {j.date_found}</p>'
             f'<p>'
             f'<span class="badge badge-match">Match {j.match_score}/10</span>'
             f'<span class="badge badge-visa">Visa {j.visa_score}/5</span>'
             f'Skills: {_esc(j.match_skills)}'
             f'</p>'
             f'<p style="color:#555">{_esc(j.summary[:200])}</p>'
+            f'<p style="font-size:11px;margin-top:4px">{recruiter_block}</p>'
             f'{outreach_block}'
             f'</div>'
         )
@@ -154,7 +170,17 @@ def save_html(jobs: List[JobListing], run_date: date | None = None) -> Path:
 
     rows_html = []
     for j in jobs:
-        if j.recruiter_url:
+        if j.recruiter_contacts:
+            parts = []
+            for c in j.recruiter_contacts[:3]:
+                name = _esc(c.get("name", ""))
+                url = c.get("linkedin_url", "")
+                parts.append(
+                    f'<a href="{url}" target="_blank" style="font-size:11px">{name}</a>'
+                    if url else name
+                )
+            recruiter_cell = "<br>".join(parts)
+        elif j.recruiter_url:
             recruiter_cell = (
                 f'<a href="{j.recruiter_url}" target="_blank" style="font-size:11px">'
                 f'Search →</a>'

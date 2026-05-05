@@ -43,6 +43,26 @@ python -m jobradar run --dry-run
    EMAIL_TO=you@gmail.com
    ```
 
+### Recruiter contact lookup — Google Programmable Search Engine (optional)
+
+JobRadar can find named recruiter/TA contacts at each hiring company via Google's
+free Custom Search API (100 queries/day; results cached for 7 days).
+
+1. Go to <https://programmablesearchengine.google.com/> → **Add** → give it any name
+2. Under *What to search* → select **Search the entire web** → **Create**
+3. Copy the **Search engine ID** (`cx` value) from the Overview page
+4. Go to <https://console.cloud.google.com/> → **APIs & Services** → **Library**
+   → search *Custom Search API* → **Enable**
+5. **Credentials** → **Create credentials** → **API key** (optionally restrict to Custom Search API)
+6. Add both to `.env`:
+   ```
+   GOOGLE_CSE_ID=your_cx_value_here
+   GOOGLE_CSE_API_KEY=your_api_key_here
+   ```
+
+Without these keys, JobRadar silently falls back to a LinkedIn people-search URL
+(no API call, no contacts — just a one-click search link per job).
+
 ### LinkedIn / Seek alert ingestion (optional)
 1. Set up job alerts on LinkedIn and Seek (email delivery)
 2. Configure IMAP in `.env`

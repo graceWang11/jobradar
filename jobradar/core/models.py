@@ -3,9 +3,21 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import date
-from typing import List
+from typing import Any, Dict, List
+
+
+def _parse_contacts(raw) -> List[Dict[str, Any]]:
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str) and raw:
+        try:
+            return json.loads(raw)
+        except Exception:
+            pass
+    return []
 
 
 @dataclass
@@ -25,8 +37,9 @@ class JobListing:
     visa_reason: str = ""
     match_score: int = -1      # 0–10 resume skill match; -1 = not yet scored
     match_skills: str = ""     # comma-separated matched skill names
-    recruiter_url: str = ""    # LinkedIn recruiter search URL
+    recruiter_url: str = ""    # LinkedIn recruiter search URL (fallback)
     outreach_msg: str = ""     # ≤300-char connection-request message
+    recruiter_contacts: List[Dict[str, Any]] = field(default_factory=list)
     hash_id: str = ""
 
     def __post_init__(self) -> None:
@@ -55,6 +68,7 @@ class JobListing:
             "match_skills": self.match_skills,
             "recruiter_url": self.recruiter_url,
             "outreach_msg": self.outreach_msg,
+            "recruiter_contacts": json.dumps(self.recruiter_contacts, ensure_ascii=False),
             "hash_id": self.hash_id,
         }
 
@@ -81,5 +95,6 @@ class JobListing:
             match_skills=d.get("match_skills", ""),
             recruiter_url=d.get("recruiter_url", ""),
             outreach_msg=d.get("outreach_msg", ""),
+            recruiter_contacts=_parse_contacts(d.get("recruiter_contacts", "[]")),
             hash_id=d.get("hash_id", ""),
         )

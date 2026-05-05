@@ -179,7 +179,7 @@ def run_pipeline(args: argparse.Namespace, cfg: dict) -> None:
     # ── 6. Score + enrich ─────────────────────────────────────────────────────
     scored = score_all(fresh)
     score_all_matches(scored)
-    enrich_all(scored)
+    enrich_all(scored, cfg)
 
     # LinkedIn body-unverified flag (login required — can't fetch description)
     for j in scored:

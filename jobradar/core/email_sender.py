@@ -24,10 +24,22 @@ def _build_top5_email(jobs: List[JobListing]) -> str:
     for i, j in enumerate(top5, 1):
         match_str = f"{j.match_score}/10" if j.match_score >= 0 else "–"
         visa_str = f"{j.visa_score}/5" if j.visa_score >= 0 else "–"
-        recruiter_cell = (
-            f'<a href="{j.recruiter_url}" style="color:#1a6fa0;font-size:11px">Find recruiter →</a>'
-            if j.recruiter_url else "–"
-        )
+        if j.recruiter_contacts:
+            contact_parts = []
+            for c in j.recruiter_contacts[:3]:
+                name = c.get("name", "")
+                title = c.get("title", "")
+                url = c.get("linkedin_url", "")
+                line = f'<a href="{url}" style="color:#1a6fa0;font-size:11px">{name}</a>' if url else name
+                if title:
+                    line += f'<span style="color:#888;font-size:10px"> · {title}</span>'
+                contact_parts.append(line)
+            recruiter_cell = "<br>".join(contact_parts)
+        else:
+            recruiter_cell = (
+                f'<a href="{j.recruiter_url}" style="color:#1a6fa0;font-size:11px">Find recruiter →</a>'
+                if j.recruiter_url else "–"
+            )
         outreach_cell = (
             f'<span style="font-family:monospace;font-size:10px;color:#444">{j.outreach_msg}</span>'
             if j.outreach_msg else ""
@@ -71,10 +83,18 @@ def build_html_body(jobs: List[JobListing], run_date: date) -> str:
     for j in jobs:
         score_color = "green" if j.visa_score >= 4 else ("red" if j.visa_score <= 1 else "gray")
         match_color = "#1a6fa0" if j.match_score >= 6 else "#888"
-        recruiter_cell = (
-            f'<a href="{j.recruiter_url}" style="color:#1a6fa0;font-size:11px">Search →</a>'
-            if j.recruiter_url else "–"
-        )
+        if j.recruiter_contacts:
+            recruiter_cell = " · ".join(
+                f'<a href="{c.get("linkedin_url","")}" style="color:#1a6fa0;font-size:11px">'
+                f'{c.get("name","")}</a>'
+                for c in j.recruiter_contacts[:3]
+                if c.get("name")
+            ) or "–"
+        else:
+            recruiter_cell = (
+                f'<a href="{j.recruiter_url}" style="color:#1a6fa0;font-size:11px">Search →</a>'
+                if j.recruiter_url else "–"
+            )
         rows.append(
             f"<tr>"
             f"<td>{j.date_found}</td>"
