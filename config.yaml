@@ -64,8 +64,8 @@ email:
 
 recruiter_lookup:
   enabled: true
-  provider: google_cse         # google_cse | none
-  max_contacts_per_company: 3  # contacts returned per company (CSE: 1 query/company)
+  provider: brave              # brave | google_cse | none
+  max_contacts_per_company: 3  # contacts returned per company (1 API query/company)
   cache_ttl_days: 7            # evict cache entries older than this
 
 sources:

@@ -43,15 +43,31 @@ python -m jobradar run --dry-run
    EMAIL_TO=you@gmail.com
    ```
 
-### Recruiter contact lookup — Google Programmable Search Engine (optional)
+### Recruiter contact lookup (optional)
 
-JobRadar can find named recruiter/TA contacts at each hiring company via Google's
-free Custom Search API (100 queries/day; results cached for 7 days).
+JobRadar can find named recruiter / TA contacts at each hiring company by
+searching public LinkedIn `/in/` profiles. Pick **one** provider and add its
+key to `.env`. Results are cached per company for `cache_ttl_days` (default 7).
 
-1. Go to <https://programmablesearchengine.google.com/> → **Add** → give it any name
+#### Option A — Brave Search API *(recommended; default)*
+
+Free tier: 2,000 queries/month, no card required.
+
+1. Go to <https://api.search.brave.com/app/keys> → sign up → create a key on the **Free** plan
+2. Add to `.env`:
+   ```
+   BRAVE_API_KEY=your_key_here
+   ```
+3. In `config.yaml`: `recruiter_lookup.provider: brave` (this is the default)
+
+#### Option B — Google Programmable Search Engine
+
+Free tier: 100 queries/day.
+
+1. <https://programmablesearchengine.google.com/> → **Add** → give it any name
 2. Under *What to search* → select **Search the entire web** → **Create**
 3. Copy the **Search engine ID** (`cx` value) from the Overview page
-4. Go to <https://console.cloud.google.com/> → **APIs & Services** → **Library**
+4. <https://console.cloud.google.com/> → **APIs & Services** → **Library**
    → search *Custom Search API* → **Enable**
 5. **Credentials** → **Create credentials** → **API key** (optionally restrict to Custom Search API)
 6. Add both to `.env`:
@@ -59,9 +75,11 @@ free Custom Search API (100 queries/day; results cached for 7 days).
    GOOGLE_CSE_ID=your_cx_value_here
    GOOGLE_CSE_API_KEY=your_api_key_here
    ```
+7. In `config.yaml`: `recruiter_lookup.provider: google_cse`
 
-Without these keys, JobRadar silently falls back to a LinkedIn people-search URL
-(no API call, no contacts — just a one-click search link per job).
+Without a configured provider, JobRadar silently falls back to a LinkedIn
+people-search URL (no API call, no named contacts — just a one-click search
+link per job).
 
 ### LinkedIn / Seek alert ingestion (optional)
 1. Set up job alerts on LinkedIn and Seek (email delivery)

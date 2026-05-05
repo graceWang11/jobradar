@@ -15,6 +15,9 @@ venv/
 output/
 logs/
 
+# Recruiter lookup cache (pure quota-saving; rebuilt on demand)
+data/recruiter_cache.json
+
 # macOS
 .DS_Store
 
