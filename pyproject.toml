@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jobradar"
+version = "0.1.0"
+description = "Local job aggregator for junior/grad tech jobs (485 visa)."
+requires-python = ">=3.10"
+dependencies = [
+  "requests>=2.31.0",
+  "httpx>=0.24.0",
+  "beautifulsoup4>=4.12.0",
+  "lxml>=4.9.0",
+  "pandas>=2.0.0",
+  "python-dotenv>=1.0.0",
+  "pyyaml>=6.0",
+  "jinja2>=3.1.0",
+  "pdfplumber>=0.10.0",
+  "playwright>=1.44.0",
+  "playwright-stealth>=2.0.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["jobradar*"]
