@@ -14,13 +14,17 @@ Workday version or board configuration that hasn't been confirmed yet.
 
 from __future__ import annotations
 
+import json
 import re
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import requests
 
 from jobradar.connectors.base import BaseConnector
+
+_BASELINE_FILE = Path(__file__).resolve().parents[2] / "data" / "workday_baseline.json"
 
 _HEADERS = {
     "User-Agent": (
@@ -36,8 +40,9 @@ _HEADERS = {
 # All entries verified to return HTTP 200 from the CXS API.
 # Add new entries only after live-testing: POST returns {"total": N, "jobPostings": [...]}
 _WORKDAY_BOARDS: List[Tuple[str, str, str, str, str]] = [
-    ("NAB",     "nab",     "3", "nab",     "NAB_Careers"),
-    ("Telstra", "telstra", "3", "telstra", "Telstra_Careers"),
+    ("NAB",       "nab",      "3", "nab",      "NAB_Careers"),
+    ("Telstra",   "telstra",  "3", "telstra",  "Telstra_Careers"),
+    ("REA Group", "reagroup", "3", "reagroup", "reacareers"),
     # ANZ, CBA, BHP, AGL return 422 — board paths not yet confirmed.
     # Uncomment after verifying the correct board path from their career site.
     # ("ANZ",     "anz",     "3", "anz",     "???"),
@@ -59,7 +64,45 @@ _LEVEL_PATTERN = re.compile(
     re.I,
 )
 
-_PAGE_SIZE = 50
+_PAGE_SIZE = 20  # Workday CXS rejects limit > 20 with HTTP 400
+
+
+def _load_baseline() -> Dict[str, int]:
+    if not _BASELINE_FILE.exists():
+        return {}
+    try:
+        return json.loads(_BASELINE_FILE.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_baseline(baseline: Dict[str, int]) -> None:
+    try:
+        _BASELINE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _BASELINE_FILE.write_text(json.dumps(baseline, indent=2, sort_keys=True))
+    except OSError as exc:
+        print(f"[Workday] baseline write failed: {exc}")
+
+
+def _verify_tenants_alive() -> None:
+    """Ping each tenant with a tiny POST and warn on persistent 4xx — surfaces
+    silently-broken tenants like NAB/Telstra before they disappear from output
+    for weeks unnoticed."""
+    for company_name, subdomain, wd_ver, tenant, board in _WORKDAY_BOARDS:
+        url = (
+            f"https://{subdomain}.wd{wd_ver}.myworkdayjobs.com"
+            f"/wday/cxs/{tenant}/{board}/jobs"
+        )
+        try:
+            resp = requests.post(
+                url, headers=_HEADERS,
+                json={"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""},
+                timeout=10,
+            )
+            if 400 <= resp.status_code < 500:
+                print(f"[Workday] WARNING: {company_name} tenant probe HTTP {resp.status_code} — config may be stale")
+        except requests.RequestException as exc:
+            print(f"[Workday] WARNING: {company_name} tenant probe failed: {exc}")
 
 
 class WorkdayConnector(BaseConnector):
@@ -67,6 +110,8 @@ class WorkdayConnector(BaseConnector):
     rate_limit_seconds = 2.0
 
     def fetch(self, locations: List[str], keywords: List[str]) -> List[Dict[str, Any]]:
+        _verify_tenants_alive()
+        baseline = _load_baseline()
         all_jobs: List[Dict[str, Any]] = []
         for company_name, subdomain, wd_ver, tenant, board in _WORKDAY_BOARDS:
             try:
@@ -74,12 +119,19 @@ class WorkdayConnector(BaseConnector):
                 if jobs:
                     print(f"[Workday] {company_name} → {len(jobs)} AU grad/junior jobs")
                 all_jobs.extend(jobs)
+
+                prior = baseline.get(company_name, 0)
+                if prior >= 10 and len(jobs) == 0:
+                    print(f"[Workday] WARNING: {company_name} returned 0 jobs (baseline {prior}) — check tenant config")
+                baseline[company_name] = max(prior, len(jobs))
             except requests.HTTPError as exc:
                 code = exc.response.status_code if exc.response is not None else "?"
                 print(f"[Workday] {company_name}: HTTP {code}")
             except Exception as exc:
                 print(f"[Workday] {company_name}: {exc}")
             time.sleep(self.rate_limit_seconds)
+
+        _save_baseline(baseline)
         return all_jobs
 
     def _fetch_board(

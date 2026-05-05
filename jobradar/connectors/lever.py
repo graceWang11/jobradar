@@ -45,6 +45,8 @@ _LEVER_COMPANIES: List[Tuple[str, str]] = [
     ("Siteminder",         "siteminder"),
     ("Campaign Monitor",   "campaignmonitor"),
     ("Intellicheck",       "intellicheck"),
+    ("Deputy",             "deputy"),
+    ("SafetyCulture",      "safetyculture-2"),
 ]
 
 _AU_LOCATION = re.compile(

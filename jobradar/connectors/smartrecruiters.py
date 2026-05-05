@@ -32,7 +32,7 @@ _HEADERS = {
 # (display_name, slug) — all verified to return totalFound > 0.
 # Slug is case-insensitive on the API side; use the canonical casing shown here.
 _SR_BOARDS: List[Tuple[str, str]] = [
-    ("Canva",           "Canva"),
+    ("Canva",           "canva"),
     ("SEEK",            "SEEK"),
     ("Nearmap",         "Nearmap"),
     ("Carsales",        "carsales"),

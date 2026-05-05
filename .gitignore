@@ -18,6 +18,9 @@ logs/
 # Recruiter lookup cache (pure quota-saving; rebuilt on demand)
 data/recruiter_cache.json
 
+# Dedup state — owned by GitHub Actions, not local runs
+data/seen_jobs.json
+
 # macOS
 .DS_Store
 
