@@ -41,8 +41,13 @@ def record_outbound(
     job_id: Optional[str] = None,
     sent_at: Optional[datetime] = None,
     message_id: Optional[str] = None,
+    rfc_message_id: Optional[str] = None,
 ) -> Optional[str]:
-    """Insert an outbound row and emit email.sent. Returns the message id."""
+    """Insert an outbound row and emit email.sent. Returns the row id (UUID).
+
+    `rfc_message_id` is the value of the outgoing MIME Message-ID header.
+    The IMAP poller matches inbound replies' In-Reply-To against this column.
+    """
     _ensure_init()
     msg_id = message_id or str(uuid.uuid4())
     now = sent_at or datetime.utcnow()
@@ -55,6 +60,7 @@ def record_outbound(
                     to_email=to_email,
                     subject=subject,
                     sent_at=now,
+                    rfc_message_id=rfc_message_id,
                 )
             )
             session.commit()
@@ -79,11 +85,19 @@ def record_inbound_reply(
     received_at: Optional[datetime] = None,
     thread_id: Optional[str] = None,
 ) -> Optional[str]:
+    """Idempotent on thread_id — duplicate calls silently return None.
+
+    The IMAP poller re-scans an overlapping window every tick, so the same
+    Message-ID can be observed multiple times. Pass the RFC Message-ID as
+    thread_id to get free dedup.
+    """
     _ensure_init()
     tid = thread_id or str(uuid.uuid4())
     now = received_at or datetime.utcnow()
     try:
         with SessionLocal() as session:
+            if session.get(InboundThread, tid) is not None:
+                return None
             session.add(
                 InboundThread(
                     id=tid,

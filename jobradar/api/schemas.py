@@ -80,6 +80,35 @@ class LoginBody(BaseModel):
     password: str
 
 
+# ── Email account (frontend-supplied IMAP+SMTP creds) ───────────────────────
+
+
+class EmailAccountIn(BaseModel):
+    """POST body. Only email + password are required; servers/ports are
+    inferred from the email domain when omitted."""
+
+    email: str
+    password: str
+    imapServer: Optional[str] = None
+    imapPort: Optional[int] = None
+    imapFolder: Optional[str] = None
+    smtpServer: Optional[str] = None
+    smtpPort: Optional[int] = None
+
+
+class EmailAccountOut(BaseModel):
+    """GET response. Never echoes the password."""
+
+    configured: bool
+    email: Optional[str] = None
+    imapServer: Optional[str] = None
+    imapPort: Optional[int] = None
+    imapFolder: Optional[str] = None
+    smtpServer: Optional[str] = None
+    smtpPort: Optional[int] = None
+    lastPolledAt: Optional[datetime] = None
+
+
 # ── Jobs feed (src/lib/types.ts contract) ───────────────────────────────────
 
 JobType = Literal["remote", "hybrid", "onsite"]

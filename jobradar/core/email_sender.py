@@ -4,15 +4,61 @@ from __future__ import annotations
 
 import os
 import smtplib
+from dataclasses import dataclass
 from datetime import date
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import make_msgid
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from jobradar.core.models import JobListing
+
+
+@dataclass(frozen=True)
+class _Creds:
+    sender: str
+    password: str
+    smtp_server: str
+    smtp_port: int
+    recipient: str
+
+
+def _load_creds() -> Optional[_Creds]:
+    """Prefer the user-registered EmailAccount; fall back to .env.
+
+    The frontend POSTs an EmailAccount row once via the API; that row drives
+    both outbound (this module) and inbound (the IMAP poller). .env stays as
+    a dev fallback so the CLI keeps working before the frontend is wired up.
+    """
+    sender = password = smtp_server = ""
+    smtp_port = 587
+    try:
+        from jobradar.api.db import EmailAccount, SessionLocal
+
+        with SessionLocal() as session:
+            row = session.get(EmailAccount, 1)
+            if row is not None:
+                sender = row.email
+                password = row.password
+                smtp_server = row.smtp_server
+                smtp_port = row.smtp_port
+    except Exception as exc:
+        print(f"[email] (account lookup skipped: {exc})")
+
+    if not sender or not password:
+        sender = os.environ.get("EMAIL_ADDRESS", "")
+        password = os.environ.get("EMAIL_PASSWORD", "")
+        smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+
+    if not sender or not password:
+        return None
+
+    recipient = os.environ.get("EMAIL_TO", sender)
+    return _Creds(sender, password, smtp_server, smtp_port, recipient)
 
 
 def _build_top5_email(jobs: List[JobListing]) -> str:
@@ -141,39 +187,34 @@ def send_email(
     csv_path: Path,
     run_date: date | None = None,
 ) -> bool:
-    """
-    Send the daily summary email via SMTP.
+    """Send the daily summary email via SMTP.
 
-    Requires these environment variables (from .env):
-      EMAIL_ADDRESS  – sender address
-      EMAIL_PASSWORD – app password (Gmail) or SMTP password
-      EMAIL_TO       – recipient address
-      SMTP_SERVER    – defaults to smtp.gmail.com
-      SMTP_PORT      – defaults to 587
+    Credentials are loaded from the EmailAccount table first (set by the
+    frontend), falling back to .env (EMAIL_ADDRESS / EMAIL_PASSWORD / etc.).
     """
     run_date = run_date or date.today()
-
-    sender = os.environ.get("EMAIL_ADDRESS", "")
-    password = os.environ.get("EMAIL_PASSWORD", "")
-    recipient = os.environ.get("EMAIL_TO", sender)
-    smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-
-    if not sender or not password:
-        print("[email] EMAIL_ADDRESS or EMAIL_PASSWORD not set – skipping send.")
+    creds = _load_creds()
+    if creds is None:
+        print("[email] No EmailAccount row and EMAIL_ADDRESS/PASSWORD not set – skipping send.")
         return False
 
     subject = f"Daily Junior/Grad Jobs – Adelaide & Melbourne – {run_date}"
     html_body = build_html_body(jobs, run_date)
 
+    # RFC 5322 Message-ID — the IMAP poller matches inbound replies' In-Reply-To
+    # against this exact string, so it must be on the outgoing message AND
+    # persisted on the outbound row.
+    domain = creds.sender.split("@")[-1] if "@" in creds.sender else "jobradar.local"
+    rfc_message_id = make_msgid(domain=domain)
+
     msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = recipient
+    msg["From"] = creds.sender
+    msg["To"] = creds.recipient
+    msg["Message-ID"] = rfc_message_id
 
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-    # Attach CSV
     if csv_path.exists():
         with open(csv_path, "rb") as fh:
             part = MIMEBase("application", "octet-stream")
@@ -188,41 +229,40 @@ def send_email(
     raw = msg.as_string()
 
     def _try_starttls() -> None:
-        """Port 587 with STARTTLS (standard)."""
-        with smtplib.SMTP(smtp_server, smtp_port, timeout=15) as server:
+        with smtplib.SMTP(creds.smtp_server, creds.smtp_port, timeout=15) as server:
             server.ehlo()
             server.starttls()
-            server.login(sender, password)
-            server.sendmail(sender, [recipient], raw)
+            server.login(creds.sender, creds.password)
+            server.sendmail(creds.sender, [creds.recipient], raw)
 
     def _try_ssl() -> None:
-        """Port 465 with implicit SSL (fallback when 587 is blocked)."""
-        with smtplib.SMTP_SSL(smtp_server, 465, timeout=15) as server:
-            server.login(sender, password)
-            server.sendmail(sender, [recipient], raw)
+        with smtplib.SMTP_SSL(creds.smtp_server, 465, timeout=15) as server:
+            server.login(creds.sender, creds.password)
+            server.sendmail(creds.sender, [creds.recipient], raw)
 
     def _record() -> None:
         try:
             from jobradar.api.recorder import record_outbound
 
             record_outbound(
-                to_email=recipient,
+                to_email=creds.recipient,
                 subject=subject,
                 job_id=None,
+                rfc_message_id=rfc_message_id,
             )
         except Exception as exc:
             print(f"[email] (recorder skipped: {exc})")
 
     try:
         _try_starttls()
-        print(f"[email] Sent to {recipient} ✓")
+        print(f"[email] Sent to {creds.recipient} ✓")
         _record()
         return True
     except (TimeoutError, OSError):
         print("[email] Port 587 timed out — retrying on port 465/SSL …")
         try:
             _try_ssl()
-            print(f"[email] Sent to {recipient} via SSL ✓")
+            print(f"[email] Sent to {creds.recipient} via SSL ✓")
             _record()
             return True
         except (TimeoutError, OSError):

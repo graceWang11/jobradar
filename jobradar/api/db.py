@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Float, String, Text, create_engine
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -43,6 +43,10 @@ class OutboundEmail(Base):
     subject: Mapped[str] = mapped_column(String, default="")
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # RFC 5322 Message-ID header on the outgoing MIME message. Separate from
+    # `id` (which is a UUID used as the SSE messageId) — this is the value
+    # the IMAP poller matches against an inbound reply's In-Reply-To header.
+    rfc_message_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
 
 
 class InboundThread(Base):
@@ -71,6 +75,29 @@ class ScheduledFollowUp(Base):
     status: Mapped[str] = mapped_column(String, default="scheduled")  # scheduled|fired|cancelled
     fired_message_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     cancelled_reason: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class EmailAccount(Base):
+    """Singleton row holding the user's IMAP + SMTP credentials.
+
+    Posted by the frontend once. Password is stored in plaintext for v1
+    (localhost single-user). TODO(v1.1): Fernet-encrypt password at rest with
+    a key derived from API_SESSION_SECRET.
+    """
+
+    __tablename__ = "email_account"
+
+    # Singleton — always 1 for v1.
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    password: Mapped[str] = mapped_column(String, nullable=False)
+    imap_server: Mapped[str] = mapped_column(String, nullable=False)
+    imap_port: Mapped[int] = mapped_column(Integer, nullable=False, default=993)
+    imap_folder: Mapped[str] = mapped_column(String, nullable=False, default="INBOX")
+    smtp_server: Mapped[str] = mapped_column(String, nullable=False)
+    smtp_port: Mapped[int] = mapped_column(Integer, nullable=False, default=587)
+    last_polled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
