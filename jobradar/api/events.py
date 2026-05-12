@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Dict, List, Set
 
 
@@ -26,6 +26,11 @@ EVENT_THREAD_READ = "thread.read"
 
 def _serialize(value: Any) -> Any:
     if isinstance(value, datetime):
+        # Match the REST schemas' UtcDatetime: naive → UTC with `Z` suffix,
+        # tz-aware → preserved as-is. JavaScript's Date.parse() interprets
+        # naive ISO strings as local time, which would mislead the dashboard.
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
         return value.isoformat()
     if isinstance(value, dict):
         return {k: _serialize(v) for k, v in value.items()}

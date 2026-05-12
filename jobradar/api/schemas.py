@@ -6,10 +6,26 @@ without coordinating with the frontend reducer in useEmailFeed.ts.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import List, Literal, Optional
+from datetime import datetime, timezone
+from typing import Annotated, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+
+
+def _to_utc_iso(dt: datetime) -> str:
+    """Serialize naive datetimes as UTC with a `Z` suffix so JS Date.parse()
+    doesn't interpret them as local time. Tz-aware values are left untouched."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+    return dt.isoformat()
+
+
+# Use this everywhere a datetime is in a *response* model. Body models can use
+# plain `datetime` since input parsing handles both forms.
+UtcDatetime = Annotated[
+    datetime,
+    PlainSerializer(_to_utc_iso, return_type=str, when_used="json"),
+]
 
 
 class Contact(BaseModel):
@@ -20,7 +36,7 @@ class Contact(BaseModel):
 class OutboundStats(BaseModel):
     sentTotal: int
     sentToday: int
-    lastSentAt: Optional[datetime] = None
+    lastSentAt: Optional[UtcDatetime] = None
     inFlight: int
 
 
@@ -30,7 +46,7 @@ class InboundThreadOut(BaseModel):
     from_: Contact = Field(..., alias="from")
     subject: str
     snippet: str
-    receivedAt: datetime
+    receivedAt: UtcDatetime
     unread: bool
 
     model_config = ConfigDict(populate_by_name=True)
@@ -47,7 +63,7 @@ class ScheduledFollowUpOut(BaseModel):
     id: str
     jobId: Optional[str] = None
     to: Contact
-    scheduledFor: datetime
+    scheduledFor: UtcDatetime
     template: str
 
 
@@ -106,7 +122,7 @@ class EmailAccountOut(BaseModel):
     imapFolder: Optional[str] = None
     smtpServer: Optional[str] = None
     smtpPort: Optional[int] = None
-    lastPolledAt: Optional[datetime] = None
+    lastPolledAt: Optional[UtcDatetime] = None
 
 
 # ── Jobs feed (src/lib/types.ts contract) ───────────────────────────────────
@@ -143,7 +159,7 @@ class Job(BaseModel):
     type: JobType
     salaryMin: int = 0
     salaryMax: int = 0
-    postedAt: datetime
+    postedAt: UtcDatetime
     description: str = ""
     tags: List[str] = Field(default_factory=list)
     visaSponsorship: bool
@@ -160,6 +176,6 @@ class JobMatchBody(BaseModel):
 
 
 class JobMatchResponse(BaseModel):
-    cachedAt: datetime
+    cachedAt: UtcDatetime
     fresh: bool
     jobs: List[Job]

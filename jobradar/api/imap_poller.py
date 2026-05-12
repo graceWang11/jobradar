@@ -148,6 +148,10 @@ def _poll_sync(account: _AccountSnapshot, since: datetime) -> Tuple[int, datetim
 
             inbound_msg_id = _extract_message_id(msg.get("Message-ID", "")) or f"imap-{uid.decode()}"
             from_name, from_email = parseaddr(msg.get("From", ""))
+            if not from_name and from_email and "@" in from_email:
+                # Plenty of recruiter ATSes don't set a display name. Use the
+                # local-part so the dashboard has something to render.
+                from_name = from_email.split("@", 1)[0]
             subject = msg.get("Subject", "") or ""
             snippet = _text_snippet(msg).strip()
             if len(snippet) > _SNIPPET_MAX:
