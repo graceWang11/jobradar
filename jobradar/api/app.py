@@ -22,9 +22,12 @@ from jobradar.api.routes import jobs as jobs_routes
 
 
 def _cors_origins() -> List[str]:
+    # Both localhost and 127.0.0.1 variants so the page origin and the API
+    # origin can be either flavour without breaking the cookie.
     raw = os.environ.get(
         "API_CORS_ORIGINS",
-        "http://localhost:3000,http://localhost:5173",
+        "http://localhost:3000,http://localhost:5173,"
+        "http://127.0.0.1:3000,http://127.0.0.1:5173",
     )
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
