@@ -21,6 +21,9 @@ data/recruiter_cache.json
 # Dedup state — owned by GitHub Actions, not local runs
 data/seen_jobs.json
 
+# API runtime DB — rebuilt on first launch
+data/api.sqlite
+
 # macOS
 .DS_Store
 

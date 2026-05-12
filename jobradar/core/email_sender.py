@@ -140,7 +140,7 @@ def send_email(
     jobs: List[JobListing],
     csv_path: Path,
     run_date: date | None = None,
-) -> None:
+) -> bool:
     """
     Send the daily summary email via SMTP.
 
@@ -161,7 +161,7 @@ def send_email(
 
     if not sender or not password:
         print("[email] EMAIL_ADDRESS or EMAIL_PASSWORD not set – skipping send.")
-        return
+        return False
 
     subject = f"Daily Junior/Grad Jobs – Adelaide & Melbourne – {run_date}"
     html_body = build_html_body(jobs, run_date)
@@ -201,15 +201,29 @@ def send_email(
             server.login(sender, password)
             server.sendmail(sender, [recipient], raw)
 
+    def _record() -> None:
+        try:
+            from jobradar.api.recorder import record_outbound
+
+            record_outbound(
+                to_email=recipient,
+                subject=subject,
+                job_id=None,
+            )
+        except Exception as exc:
+            print(f"[email] (recorder skipped: {exc})")
+
     try:
         _try_starttls()
         print(f"[email] Sent to {recipient} ✓")
+        _record()
         return True
     except (TimeoutError, OSError):
         print("[email] Port 587 timed out — retrying on port 465/SSL …")
         try:
             _try_ssl()
             print(f"[email] Sent to {recipient} via SSL ✓")
+            _record()
             return True
         except (TimeoutError, OSError):
             print(

@@ -75,6 +75,12 @@ def build_parser() -> argparse.ArgumentParser:
                             help="Skip Markdown output")
 
     subparsers.add_parser("export", help="Re-export last run's data (not yet implemented)")
+
+    api_parser = subparsers.add_parser("api", help="Run the HTTP API for the frontend")
+    api_parser.add_argument("--host", default="127.0.0.1")
+    api_parser.add_argument("--port", type=int, default=8000)
+    api_parser.add_argument("--reload", action="store_true",
+                            help="Auto-reload on code changes (dev only)")
     return parser
 
 
@@ -225,6 +231,14 @@ def main() -> None:
         run_pipeline(args, cfg)
     elif args.command == "export":
         print("[jobradar] Export command not yet implemented.")
+    elif args.command == "api":
+        import uvicorn
+        uvicorn.run(
+            "jobradar.api.app:app",
+            host=args.host,
+            port=args.port,
+            reload=args.reload,
+        )
     else:
         parser.print_help()
 
