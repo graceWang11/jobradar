@@ -7,9 +7,9 @@ without coordinating with the frontend reducer in useEmailFeed.ts.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Contact(BaseModel):
@@ -18,10 +18,10 @@ class Contact(BaseModel):
 
 
 class OutboundStats(BaseModel):
+    sentTotal: int
     sentToday: int
-    sentAllTime: int
-    inFlight: int
     lastSentAt: Optional[datetime] = None
+    inFlight: int
 
 
 class InboundThreadOut(BaseModel):
@@ -31,14 +31,15 @@ class InboundThreadOut(BaseModel):
     subject: str
     snippet: str
     receivedAt: datetime
-    read: bool
+    unread: bool
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class InboundStats(BaseModel):
+    threadsTotal: int
     unread: int
-    repliedToday: int
+    repliesToday: int
     latestThreads: List[InboundThreadOut]
 
 
@@ -51,7 +52,7 @@ class ScheduledFollowUpOut(BaseModel):
 
 
 class FollowUpsStats(BaseModel):
-    queued: int
+    scheduledTotal: int
     items: List[ScheduledFollowUpOut]
 
 
@@ -71,13 +72,65 @@ class CreateFollowUpBody(BaseModel):
     template: str = ""
 
 
-class PatchThreadBody(BaseModel):
-    read: Optional[bool] = None
-
-
 class ReplyBody(BaseModel):
     body: str
 
 
 class LoginBody(BaseModel):
     password: str
+
+
+# ── Jobs feed (src/lib/types.ts contract) ───────────────────────────────────
+
+JobType = Literal["remote", "hybrid", "onsite"]
+ExperienceLevel = Literal["intern", "entry", "mid", "senior", "lead"]
+WorkAuthorization = Literal["citizen", "permanent", "visa-required", "student"]
+JobSource = Literal["LinkedIn", "Indeed", "Wellfound", "Greenhouse", "Lever", "Direct"]
+ApplicationStatus = Literal[
+    "saved", "applied", "screening", "interview", "offer", "rejected"
+]
+
+
+class UserPreferences(BaseModel):
+    jobTypes: List[JobType]
+    locations: List[str]
+    visaSponsorship: bool
+    workAuthorization: WorkAuthorization
+    experienceLevel: ExperienceLevel
+    desiredRoles: List[str]
+    keywords: List[str]
+    minSalary: int
+    maxSalary: int
+    willingToRelocate: bool
+    remoteOnly: bool
+
+
+class Job(BaseModel):
+    id: str
+    title: str
+    company: str
+    companyEmoji: str = ""
+    location: str
+    type: JobType
+    salaryMin: int = 0
+    salaryMax: int = 0
+    postedAt: datetime
+    description: str = ""
+    tags: List[str] = Field(default_factory=list)
+    visaSponsorship: bool
+    experience: ExperienceLevel
+    matchScore: int = Field(ge=0, le=100)
+    source: JobSource
+    status: Optional[ApplicationStatus] = None
+
+
+class JobMatchBody(BaseModel):
+    preferences: UserPreferences
+    resumeSkills: List[str] = Field(default_factory=list)
+    limit: Optional[int] = None
+
+
+class JobMatchResponse(BaseModel):
+    cachedAt: datetime
+    fresh: bool
+    jobs: List[Job]

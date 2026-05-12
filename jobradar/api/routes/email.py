@@ -32,7 +32,6 @@ from jobradar.api.schemas import (
     InboundStats,
     InboundThreadOut,
     OutboundStats,
-    PatchThreadBody,
     ReplyBody,
     ScheduledFollowUpOut,
 )
@@ -55,7 +54,7 @@ def get_status(session: Session = Depends(get_session)) -> EmailStatus:
     sent_today = session.scalar(
         select(func.count(OutboundEmail.id)).where(OutboundEmail.sent_at >= today)
     ) or 0
-    sent_all = session.scalar(select(func.count(OutboundEmail.id))) or 0
+    sent_total = session.scalar(select(func.count(OutboundEmail.id))) or 0
     in_flight = session.scalar(
         select(func.count(OutboundEmail.id)).where(OutboundEmail.sent_at.is_(None))
     ) or 0
@@ -63,10 +62,11 @@ def get_status(session: Session = Depends(get_session)) -> EmailStatus:
         select(func.max(OutboundEmail.sent_at))
     )
 
+    threads_total = session.scalar(select(func.count(InboundThread.id))) or 0
     unread = session.scalar(
         select(func.count(InboundThread.id)).where(InboundThread.read.is_(False))
     ) or 0
-    replied_today = session.scalar(
+    replies_today = session.scalar(
         select(func.count(InboundThread.id)).where(InboundThread.replied_at >= today)
     ) or 0
 
@@ -85,12 +85,12 @@ def get_status(session: Session = Depends(get_session)) -> EmailStatus:
             subject=row.subject,
             snippet=row.snippet,
             receivedAt=row.received_at,
-            read=row.read,
+            unread=not row.read,
         )
         for row in latest_rows
     ]
 
-    queued = session.scalar(
+    scheduled_total = session.scalar(
         select(func.count(ScheduledFollowUp.id)).where(ScheduledFollowUp.status == "scheduled")
     ) or 0
     upcoming_rows: List[ScheduledFollowUp] = list(
@@ -114,17 +114,18 @@ def get_status(session: Session = Depends(get_session)) -> EmailStatus:
 
     return EmailStatus(
         outbound=OutboundStats(
+            sentTotal=sent_total,
             sentToday=sent_today,
-            sentAllTime=sent_all,
-            inFlight=in_flight,
             lastSentAt=last_sent,
+            inFlight=in_flight,
         ),
         inbound=InboundStats(
+            threadsTotal=threads_total,
             unread=unread,
-            repliedToday=replied_today,
+            repliesToday=replies_today,
             latestThreads=latest_threads,
         ),
-        followUps=FollowUpsStats(queued=queued, items=upcoming),
+        followUps=FollowUpsStats(scheduledTotal=scheduled_total, items=upcoming),
     )
 
 
@@ -211,20 +212,15 @@ def cancel_followup(followup_id: str, session: Session = Depends(get_session)):
 # ── Threads ──────────────────────────────────────────────────────────────────
 
 
-@router.patch("/threads/{thread_id}")
-def patch_thread(
-    thread_id: str,
-    body: PatchThreadBody,
-    session: Session = Depends(get_session),
-):
+@router.post("/threads/{thread_id}/read")
+def mark_thread_read(thread_id: str, session: Session = Depends(get_session)):
     row = session.get(InboundThread, thread_id)
     if row is None:
         raise HTTPException(status_code=404, detail="thread not found")
-    if body.read is not None:
-        row.read = body.read
+    row.read = True
     session.commit()
-    events.bus.emit(events.EVENT_THREAD_READ, {"threadId": thread_id, "read": row.read})
-    return {"id": thread_id, "read": row.read}
+    events.bus.emit(events.EVENT_THREAD_READ, {"threadId": thread_id})
+    return {"threadId": thread_id}
 
 
 @router.post("/threads/{thread_id}/reply")

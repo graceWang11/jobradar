@@ -15,6 +15,7 @@ from jobradar.api.db import init_db
 from jobradar.api.events import bus
 from jobradar.api.routes import auth as auth_routes
 from jobradar.api.routes import email as email_routes
+from jobradar.api.routes import jobs as jobs_routes
 
 
 def _cors_origins() -> List[str]:
@@ -47,6 +48,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_routes.router)
     app.include_router(email_routes.router)
+    app.include_router(jobs_routes.router)
 
     @app.on_event("startup")
     async def _bind_event_loop() -> None:

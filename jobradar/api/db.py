@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, String, create_engine
+from sqlalchemy import Boolean, DateTime, Float, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -72,6 +72,15 @@ class ScheduledFollowUp(Base):
     fired_message_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     cancelled_reason: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class JobMatchCache(Base):
+    __tablename__ = "job_match_cache"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    jobs_json: Mapped[str] = mapped_column(Text, nullable=False)
+    source_mtime: Mapped[float] = mapped_column(Float, nullable=False)
+    cached_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 def init_db() -> None:
