@@ -110,6 +110,20 @@ class JobMatchCache(Base):
     cached_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class TrackedJob(Base):
+    """User-saved/applied jobs. job_json is a snapshot of the Job object at the
+    time of tracking so the listing stays accessible even after the source CSV
+    rotates or preferences change to filter it out."""
+
+    __tablename__ = "tracked_jobs"
+
+    job_id: Mapped[str] = mapped_column(String, primary_key=True)
+    status: Mapped[str] = mapped_column(String, nullable=False)  # saved|applied|screening|interview|offer
+    job_json: Mapped[str] = mapped_column(Text, nullable=False)
+    tracked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 def init_db() -> None:
     """Create tables if they do not exist. Idempotent."""
     Base.metadata.create_all(engine)

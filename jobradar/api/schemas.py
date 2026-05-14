@@ -150,6 +150,12 @@ class UserPreferences(BaseModel):
     remoteOnly: bool
 
 
+class RecruiterContact(BaseModel):
+    name: str
+    title: str = ""
+    linkedinUrl: str
+
+
 class Job(BaseModel):
     id: str
     title: str
@@ -167,6 +173,10 @@ class Job(BaseModel):
     matchScore: int = Field(ge=0, le=100)
     source: JobSource
     status: Optional[ApplicationStatus] = None
+    url: str = ""
+    recruiterSearchUrl: str = ""
+    recruiterContacts: List[RecruiterContact] = Field(default_factory=list)
+    outreachMessage: str = ""
 
 
 class JobMatchBody(BaseModel):
@@ -179,3 +189,16 @@ class JobMatchResponse(BaseModel):
     cachedAt: UtcDatetime
     fresh: bool
     jobs: List[Job]
+
+
+class TrackedJobIn(BaseModel):
+    status: ApplicationStatus
+    job: Job
+
+
+class TrackedJobOut(BaseModel):
+    jobId: str
+    status: ApplicationStatus
+    trackedAt: UtcDatetime
+    updatedAt: UtcDatetime
+    job: Job

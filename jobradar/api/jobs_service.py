@@ -20,7 +20,7 @@ from typing import List, Optional, Tuple
 
 import pandas as pd
 
-from jobradar.api.schemas import Job, UserPreferences
+from jobradar.api.schemas import Job, RecruiterContact, UserPreferences
 from jobradar.core.models import JobListing
 
 OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output"
@@ -120,6 +120,20 @@ def to_job(j: JobListing) -> Job:
     raw_match = max(0, j.match_score) * 8 + max(0, j.visa_score) * 4
     score = max(0, min(100, raw_match))
     posted_at = datetime.combine(j.date_found, time.min, tzinfo=timezone.utc)
+
+    contacts: List[RecruiterContact] = []
+    for c in j.recruiter_contacts or []:
+        link = c.get("linkedin_url") or c.get("linkedinUrl") or ""
+        if not link:
+            continue
+        contacts.append(
+            RecruiterContact(
+                name=c.get("name", "") or "",
+                title=c.get("title", "") or "",
+                linkedinUrl=link,
+            )
+        )
+
     return Job(
         id=j.hash_id,
         title=j.title,
@@ -136,7 +150,22 @@ def to_job(j: JobListing) -> Job:
         experience=_classify_experience(exp_signal),  # type: ignore[arg-type]
         matchScore=score,
         source=_classify_source(j.source),  # type: ignore[arg-type]
+        url=j.url or "",
+        recruiterSearchUrl=j.recruiter_url or "",
+        recruiterContacts=contacts,
+        outreachMessage=j.outreach_msg or "",
     )
+
+
+_EXPERIENCE_LADDER = {"intern": 0, "entry": 1, "mid": 2, "senior": 3, "lead": 4}
+
+
+def _experience_matches(job_level: str, wanted: str) -> bool:
+    j = _EXPERIENCE_LADDER.get(job_level)
+    w = _EXPERIENCE_LADDER.get(wanted)
+    if j is None or w is None:
+        return True
+    return w - 1 <= j <= w
 
 
 def _location_matches(job_location: str, wanted: List[str]) -> bool:
@@ -173,12 +202,11 @@ def filter_and_score(
         # again on visa_score >= 3 would exclude most surviving listings —
         # most companies just don't mention sponsorship explicitly. The
         # visa_score still feeds matchScore so explicit sponsors rank higher.
-        # Experience: enforce only when the job has a clearly different level.
-        # intern overlaps with entry — keep both visible if the user picked entry.
-        if (
-            prefs.experienceLevel
-            and job.experience != prefs.experienceLevel
-            and not (prefs.experienceLevel == "entry" and job.experience == "intern")
+        # Experience: accept jobs at the user's level or one rung below — mid
+        # candidates still want to see entry-level roles, senior wants mid, etc.
+        # Lower bounds keep interns out of mid+ searches.
+        if prefs.experienceLevel and not _experience_matches(
+            job.experience, prefs.experienceLevel
         ):
             continue
         # Salary: only filter when both sides have numbers
